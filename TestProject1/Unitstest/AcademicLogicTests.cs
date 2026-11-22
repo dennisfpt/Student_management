@@ -73,11 +73,6 @@ Round(midterm * 0.4 + finalScore * 0.6, 2);
         string status = average10 >= 5.0 ? "Pass" : "Fail";
 
         Assert.Equal(expectedGpa, computedGpa);
- 
-
-
-
-
        Assert.Equal(expectedStatus, status);
     }
 }

@@ -274,7 +274,7 @@
                     const description = document.getElementById('newAsmDesc').value.trim();
                     if (!title) return;
 
-                    const res = await fetch('/api/portal/assignments', {
+                    const res = await fetch('/api/grade/assignments', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ classId, courseName: info.department, lecturerName: info.fullName, title, description, dueDate })
@@ -302,7 +302,7 @@
                 document.getElementById('btnSaveSubGrade')?.addEventListener('click', async () => {
                     const score = parseFloat(document.getElementById('subScoreVal').value) || 0;
                     const feedback = document.getElementById('subFeedbackVal').value.trim();
-                    const res = await fetch('/api/portal/assignments/grade', {
+                    const res = await fetch('/api/grade/assignments/grade', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ assignmentId: asm.id, studentId: sub.studentId, score, feedback })
@@ -385,7 +385,7 @@
                         updatedBy: info.fullName
                     };
                 });
-                const res = await fetch('/api/portal/attendance/save', {
+                const res = await fetch('/api/attendance/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -495,7 +495,7 @@
             document.getElementById('btnSaveLecturerAvatar')?.addEventListener('click', async () => {
                 const av = dynamicState?.profile?.avatarBase64;
                 if (!av) return;
-                const res = await fetch('/api/portal/avatar', {
+                const res = await fetch('/api/student/avatar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: user.email, role: 'Teacher', defaultName: info.fullName, avatarBase64: av })

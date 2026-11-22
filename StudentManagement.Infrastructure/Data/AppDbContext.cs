@@ -14,9 +14,9 @@ public class AppDbContext : DbContext
     public DbSet<Grade> Grades => Set<Grade>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
     public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
-    public DbSet<SchoolClass> SchoolClasses { get; set; }
-    public DbSet<Semester> Semesters { get; set; }
-    public DbSet<AttendanceRecord> AttendanceRecords { get; set; }
+    public DbSet<SchoolClass> SchoolClasses => Set<SchoolClass>();
+    public DbSet<Semester> Semesters => Set<Semester>();
+    public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
 
     // Bảng mở rộng cho Portal (lưu bền vững trên PostgreSQL)
     public DbSet<ClassSection> ClassSections => Set<ClassSection>();
@@ -53,15 +53,85 @@ public class AppDbContext : DbContext
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
         });
 
-        modelBuilder.Entity<ClassSection>().HasKey(e => e.Id);
-        modelBuilder.Entity<StudentProfile>().HasKey(e => e.Email);
-        modelBuilder.Entity<TuitionInvoice>().HasKey(e => e.Id);
-        modelBuilder.Entity<Announcement>().HasKey(e => e.Id);
-        modelBuilder.Entity<SupportTicket>().HasKey(e => e.Id);
-        modelBuilder.Entity<PortalAssignment>().HasKey(e => e.Id);
-        modelBuilder.Entity<AttendanceSummary>().HasKey(e => e.Id);
-        modelBuilder.Entity<ScholarshipAward>().HasKey(e => e.StudentId);
-        modelBuilder.Entity<CampusEvent>().HasKey(e => e.Id);
-        modelBuilder.Entity<AuditLog>().HasKey(e => e.Id);
+        modelBuilder.Entity<UserAccount>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Username).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.FullName).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.Role).IsRequired().HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<ClassSection>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(50);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(150);
+        });
+
+        modelBuilder.Entity<StudentProfile>(entity =>
+        {
+            entity.HasKey(e => e.Email);
+            entity.Property(e => e.Email).HasMaxLength(150);
+            entity.Property(e => e.StudentId).HasMaxLength(50);
+            entity.Property(e => e.FullName).HasMaxLength(150);
+        });
+
+        modelBuilder.Entity<TuitionInvoice>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(50);
+            entity.Property(e => e.AmountVnd).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<Announcement>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(50);
+            entity.Property(e => e.Title).HasMaxLength(200);
+            entity.Property(e => e.AmountVnd).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<SupportTicket>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(50);
+            entity.Property(e => e.Subject).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<PortalAssignment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(50);
+            entity.Property(e => e.Title).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<AttendanceSummary>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.StudentId).HasMaxLength(50);
+            entity.Property(e => e.ClassId).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<ScholarshipAward>(entity =>
+        {
+            entity.HasKey(e => e.StudentId);
+            entity.Property(e => e.StudentId).HasMaxLength(50);
+            entity.Property(e => e.WaiverAmountVnd).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<CampusEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(50);
+            entity.Property(e => e.Title).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(50);
+            entity.Property(e => e.Actor).HasMaxLength(150);
+            entity.Property(e => e.Action).HasMaxLength(100);
+        });
     }
 }

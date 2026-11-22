@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using StudentManagement.Domain.Entities;
-using StudentManagement.Domain.Interfaces;
+using StudentManagement.Infrastructure.Data;
 
 namespace StudentManagement.API.Controllers;
 
@@ -8,48 +9,103 @@ namespace StudentManagement.API.Controllers;
 [Route("api/[controller]")]
 public class TeacherController : ControllerBase
 {
-    private readonly ITeacherRepository _repository;
+    private readonly AppDbContext _context;
 
-    public TeacherController(ITeacherRepository repository)
+    public TeacherController(AppDbContext context)
     {
-        _repository = repository;
+        _context = context;
     }
-    // ... các hàm còn lại giữ nguyên
 
-
+    // GET: api/Teacher
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var teachers = await _repository.GetAllAsync();
+        var teachers = await _context.Teachers.AsNoTracking().ToListAsync();
         return Ok(teachers);
     }
 
+    // POST: api/Teacher
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] Teacher teacher)
+    public async Task<IActionResult> Create([FromBody] TeacherRequest request)
     {
-        if (string.IsNullOrWhiteSpace(teacher.Id) || string.IsNullOrWhiteSpace(teacher.FullName))
-            return BadRequest(new { error = "Mã GV và Họ tên không được để trống." });
+        if (string.IsNullOrWhiteSpace(request.FullName) || string.IsNullOrWhiteSpace(request.Email))
+        {
+            return BadRequest(new { message = "Full name and email are required." });
+        }
 
-        var existing = await _repository.GetByIdAsync(teacher.Id);
-        if (existing != null)
-            return BadRequest(new { error = "Mã giảng viên này đã tồn tại!" });
+        var id = string.IsNullOrWhiteSpace(request.Id)
+            ? $"GV{(await _context.Teachers.CountAsync() + 1):D3}"
+            : request.Id.Trim();
 
-        await _repository.AddAsync(teacher);
-        return Ok(teacher);
+        var teacher = new Teacher
+        {
+            Id = id,
+            FullName = request.FullName.Trim(),
+            Email = request.Email.Trim().ToLowerInvariant(),
+            Department = string.IsNullOrWhiteSpace(request.Department) ? "Information Technology" : request.Department.Trim(),
+            PhoneNumber = string.IsNullOrWhiteSpace(request.Phone) ? "0901234567" : request.Phone.Trim()
+        };
+
+        _context.Teachers.Add(teacher);
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            teacher.Id,
+            teacher.FullName,
+            teacher.Email,
+            Department = teacher.Department,
+            Phone = teacher.PhoneNumber
+        });
     }
 
+    // PUT: api/Teacher/{id}
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(string id, [FromBody] Teacher teacher)
+    public async Task<IActionResult> Update(string id, [FromBody] TeacherRequest request)
     {
-        if (id != teacher.Id) return BadRequest(new { error = "ID không trùng khớp." });
-        await _repository.UpdateAsync(teacher);
-        return Ok(teacher);
+        var teacher = await _context.Teachers.FirstOrDefaultAsync(t => t.Id == id);
+        if (teacher == null)
+        {
+            return NotFound();
+        }
+
+        teacher.FullName = request.FullName.Trim();
+        teacher.Email = request.Email.Trim().ToLowerInvariant();
+        teacher.Department = string.IsNullOrWhiteSpace(request.Department) ? teacher.Department : request.Department.Trim();
+        teacher.PhoneNumber = string.IsNullOrWhiteSpace(request.Phone) ? teacher.PhoneNumber : request.Phone.Trim();
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            teacher.Id,
+            teacher.FullName,
+            teacher.Email,
+            Department = teacher.Department,
+            Phone = teacher.PhoneNumber
+        });
     }
 
+    // DELETE: api/Teacher/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        await _repository.DeleteAsync(id);
-        return Ok(new { message = "Đã xóa giảng viên thành công." });
+        var teacher = await _context.Teachers.FirstOrDefaultAsync(t => t.Id == id);
+        if (teacher == null)
+        {
+            return NotFound();
+        }
+
+        _context.Teachers.Remove(teacher);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Lecturer deleted successfully." });
     }
 }
+
+public record TeacherRequest(
+    string? Id,
+    string FullName,
+    string Email,
+    string? Department,
+    string? Phone);

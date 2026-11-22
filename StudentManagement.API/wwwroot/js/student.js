@@ -21,7 +21,7 @@ let activeTab = 'overview';
 
 function getStudentAvatarUrl() {
     const p = dynamicState.profile;
-    return p.avatarBase64 || ('[https://ui-avatars.com/api/?name=](https://ui-avatars.com/api/?name=)' + encodeURIComponent(p.fullName || currentUser.fullName) + '&background=2563eb&color=fff&size=160');
+    return p.avatarBase64 || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(p.fullName || currentUser.fullName) + '&background=2563eb&color=fff&size=160');
 }
 
 function updateTopbarAvatar() {
@@ -224,7 +224,7 @@ function renderContent() {
             openModal(`Submit Work • ${asm.title}`, `
                 <div class="form-group">
                     <label>Submission Link (GitHub / Google Drive / Figma URL)</label>
-                    <input id="subLinkInput" class="input-control" placeholder="[https://github.com/username/project](https://github.com/username/project)...">
+                    <input id="subLinkInput" class="input-control" placeholder="https://github.com/username/project...">
                 </div>
                 <div class="form-group">
                     <label>Or Attach File (PDF, ZIP, DOCX, PNG — Max 5MB)</label>
@@ -255,7 +255,7 @@ function renderContent() {
                     alert('Please enter a repository/drive link or attach a file!');
                     return;
                 }
-                const res = await fetch(`/api/portal/assignments/${asm.id}/submit`, {
+                const res = await fetch(`/api/grade/assignments/${asm.id}/submit`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -400,7 +400,7 @@ function renderContent() {
 
         document.getElementById('btnRefreshEvents')?.addEventListener('click', async () => { await syncPortalState(); renderContent(); });
         c.querySelectorAll('[data-evt-checkin]').forEach(btn => btn.addEventListener('click', async () => {
-            const res = await fetch(`/api/portal/events/${btn.dataset.evtCheckin}/checkin`, {
+            const res = await fetch(`/api/academic/events/${btn.dataset.evtCheckin}/checkin`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ studentId: myRec.id, studentName: myRec.fullName, studentEmail: myRec.email, classId: myRec.classId })
@@ -553,7 +553,7 @@ function renderContent() {
                 alert('Please enter both subject and detailed description.');
                 return;
             }
-            const res = await fetch('/api/portal/tickets', {
+            const res = await fetch('/api/academic/tickets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -624,7 +624,7 @@ function renderContent() {
                 alert('Please choose a photo first!');
                 return;
             }
-            const res = await fetch('/api/portal/avatar', {
+            const res = await fetch('/api/student/avatar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

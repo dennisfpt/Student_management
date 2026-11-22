@@ -39,7 +39,14 @@ public class SimsWorkflowIntegrationTests
         var fakeEmail = new FakeEmailService();
         var authController = new AuthController(context, fakeEmail);
 
-        var registerReq = new RegisterRequest("new.lecturer@unit.edu.vn", "Pass@2026", "Dr. Tran Minh", "Teacher");
+        var registerReq = new PortalRegisterRequest(
+            FullName: "Dr. Tran Minh",
+            Email: "new.lecturer@unit.edu.vn",
+            Password: "Pass@2026",
+            Role: "Teacher",
+            UserCode: null,
+            Phone: null,
+            Major: "Information Technology");
 
         // Act 1: Đăng ký tài khoản mới -> lưu vào Database
         var regResult = await authController.Register(registerReq) as OkObjectResult;
@@ -50,7 +57,8 @@ public class SimsWorkflowIntegrationTests
         Assert.Equal(1, await context.UserAccounts.CountAsync());
 
         // Act 2: Đăng nhập bằng tài khoản vừa tạo
-        var loginResult = await authController.Login(new LoginRequest("new.lecturer@unit.edu.vn", "Pass@2026")) as OkObjectResult;
+        var loginResult = await authController.Login(
+            new PortalLoginRequest("new.lecturer@unit.edu.vn", "Pass@2026")) as OkObjectResult;
 
         // Assert 2: Xác thực thành công
         Assert.NotNull(loginResult);
@@ -65,7 +73,10 @@ public class SimsWorkflowIntegrationTests
         var fakeEmail = new FakeEmailService();
         var authController = new AuthController(context, fakeEmail);
 
-        var emailReq = new SendEmailRequest("an.nv@unit.edu.vn", "Exam Schedule", "Your final exam is on Monday.");
+        var emailReq = new SendNotificationEmailRequest(
+            "an.nv@unit.edu.vn",
+            "Exam Schedule",
+            "Your final exam is on Monday.");
 
         // Act
         var result = await authController.SendEmailToStudent(emailReq) as OkObjectResult;
@@ -81,33 +92,35 @@ public class SimsWorkflowIntegrationTests
     {
         // Arrange
         using var context = CreateInMemoryDbContext();
-        var academicController = new AcademicController(context);
+        var fakeEmail = new FakeEmailService();
+        var academicController = new AcademicController(context, fakeEmail);
+        var attendanceController = new AttendanceController(context);
 
-        var newClass = new SchoolClass
+        var newClass = new ClassSection
         {
-            Id = "DHTK05",
+            Id = "IT-K26C1",
             Name = "Software Engineering Cohort 5",
             Department = "Information Technology",
-            Capacity = 50,
+            MaxCapacity = 30,
             Status = "Active"
         };
 
         // Act 1: Tạo lớp học mới
-        var classRes = await academicController.CreateClass(newClass) as OkObjectResult;
+        var classRes = await academicController.AddClass(newClass) as OkObjectResult;
         Assert.NotNull(classRes);
-        Assert.Equal("DHTK05", (await context.SchoolClasses.FirstAsync()).Id);
+        Assert.Equal("IT-K26C1", (await context.ClassSections.FirstAsync()).Id);
 
-        // Act 2: Lưu danh sách điểm danh hàng loạt
-        var attendanceBatch = new List<AttendanceRecord>
+        // Act 2: Lưu danh sách điểm danh hàng loạt qua AttendanceController
+        var attendanceBatch = new List<AttendanceSummaryRequest>
         {
-            new() { StudentId = "SV001", CourseId = "PROG101", Status = "Present", Note = "On time" },
-            new() { StudentId = "SV002", CourseId = "PROG101", Status = "Absent", Note = "Sick leave" }
+            new("SV001", "Nguyen Van An", "IT-K26C1", 15, 15, 0, "Prof. Nguyen Van Minh"),
+            new("SV002", "Tran Thi Bich", "IT-K26C1", 15, 14, 1, "Prof. Nguyen Van Minh")
         };
 
-        var attRes = await academicController.SaveBulkAttendance(attendanceBatch) as OkObjectResult;
+        var attRes = await attendanceController.SaveClassAttendance(attendanceBatch) as OkObjectResult;
 
         // Assert: Toàn bộ 2 bản ghi điểm danh nằm trong DB
         Assert.NotNull(attRes);
-        Assert.Equal(2, await context.AttendanceRecords.CountAsync());
+        Assert.Equal(2, await context.AttendanceSummaries.CountAsync());
     }
 }

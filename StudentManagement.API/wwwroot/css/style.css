@@ -149,6 +149,10 @@ body {
     color: var(--text-muted);
     cursor: pointer;
     transition: 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
 
     .role-tab.active {
@@ -244,6 +248,277 @@ body {
         .quick-demo-accounts div:hover {
             background: rgba(56, 189, 248, 0.15);
         }
+
+/* ==================== AUTH PAGES OVERRIDES (LOGIN & REGISTER) ==================== */
+.auth-body {
+    margin: 0;
+    min-height: 100vh;
+    background: #060b19;
+    color: #f8fafc;
+}
+
+.auth-lang-switcher {
+    position: fixed;
+    top: 18px;
+    right: 22px;
+    z-index: 20;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    backdrop-filter: blur(12px);
+    color: #e2e8f0;
+    font-size: 12.5px;
+}
+
+    .auth-lang-switcher select {
+        background: transparent;
+        border: none;
+        color: #f8fafc;
+        font-size: 12.5px;
+        outline: none;
+        cursor: pointer;
+    }
+
+.login-hero-overlay {
+    position: relative;
+    min-height: 100vh;
+    background: linear-gradient(90deg, rgba(5, 11, 28, 0.86) 0%, rgba(10, 20, 48, 0.68) 55%, rgba(8, 15, 36, 0.84) 100%), url('../images/login-campus-bg.jpg') center / cover no-repeat;
+}
+
+.brand-logo-split {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.brand-divider {
+    width: 1px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.brand-subtext {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.banner-hero h1 span {
+    color: #38bdf8;
+    font-weight: 800;
+}
+
+.login-glass-card {
+    background: rgba(10, 18, 42, 0.78);
+    border: 1px solid rgba(99, 179, 237, 0.35);
+    box-shadow: 0 0 36px rgba(56, 189, 248, 0.16), 0 24px 60px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(18px);
+    border-radius: 20px;
+}
+
+.card-brand-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+    .card-brand-header img {
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+    }
+
+.card-brand-title {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.15;
+    color: #ffffff;
+}
+
+.card-brand-sub {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.input-icon-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-leading-icon {
+    position: absolute;
+    left: 13px;
+    width: 16px;
+    height: 16px;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.input-control.with-leading-icon {
+    padding-left: 38px;
+}
+
+.input-control.with-trailing-btn {
+    padding-right: 40px;
+}
+
+.password-toggle-btn {
+    position: absolute;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-gradient-sign {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    background: linear-gradient(90deg, #0ea5e9 0%, #7c3aed 100%);
+    border: none;
+}
+
+.auth-or-divider {
+    position: relative;
+    text-align: center;
+    margin: 14px 0;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+    .auth-or-divider::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: rgba(148, 163, 184, 0.2);
+        z-index: 0;
+    }
+
+    .auth-or-divider span {
+        position: relative;
+        z-index: 1;
+        padding: 0 10px;
+        background: rgba(10, 18, 42, 0.92);
+    }
+
+.btn-google-light {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    background: #ffffff;
+    color: #0f172a;
+    font-weight: 600;
+    border-radius: 10px;
+}
+
+.quick-access-strip {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.quick-access-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #94a3b8;
+}
+
+.quick-link-chip {
+    cursor: pointer;
+    color: #cbd5e1;
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+
+    .quick-link-chip:hover {
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.1);
+    }
+
+.register-banner-pane {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.45) 0%, rgba(15, 23, 42, 0.72) 100%), url('../images/register-graduation-bg.jpg') center / cover no-repeat;
+}
+
+.register-logo-badge {
+    display: inline-flex;
+    background: #ffffff;
+    padding: 8px 14px;
+    border-radius: 12px;
+}
+
+    .register-logo-badge img {
+        height: 36px;
+        width: auto;
+    }
+
+.register-tagline {
+    color: #38bdf8;
+    font-weight: 600;
+}
+
+.register-form-pane {
+    background: #070e22;
+}
+
+.register-card {
+    background: #0b142d;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 18px;
+}
+
+.register-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.register-role-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.btn-register-submit {
+    width: 100%;
+    background: linear-gradient(90deg, #0284c7 0%, #38bdf8 100%);
+    border: none;
+}
+
+.btn-google-dark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 12px;
+    background: #111c3a;
+    color: #e2e8f0;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 10px;
+}
 
 /* ==================== MAIN APP SHELL (SIDEBAR + TOPBAR) ==================== */
 .app-layout {
@@ -914,5 +1189,11 @@ input:checked + .slider {
 
     .topbar-search {
         width: 180px;
+    }
+}
+
+@media (max-width: 640px) {
+    .register-grid-2 {
+        grid-template-columns: 1fr;
     }
 }

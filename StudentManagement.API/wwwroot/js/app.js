@@ -85,7 +85,7 @@ function buildVietQrUrl(invoice) {
 async function syncPortalState() {
     const email = encodeURIComponent(currentUser?.email || 'an.nv@unit.edu.vn');
     try {
-        const res = await fetch(`/api/portal/state?email=${email}&t=${Date.now()}`);
+        const res = await fetch(`/api/academic/state?email=${email}&t=${Date.now()}`);
         if (res.ok) {
             const data = await res.json();
             if (data.students) cache.students = data.students;
@@ -146,7 +146,7 @@ function openQrPaymentModal(invoiceId) {
     `);
 
     document.getElementById('btnConfirmQrPaid')?.addEventListener('click', async () => {
-        await fetch(`/api/portal/pay/${inv.id}`, { method: 'POST' }).catch(() => { });
+        await fetch(`/api/academic/pay/${inv.id}`, { method: 'POST' }).catch(() => { });
         inv.paid = true;
         closeModal();
         alert(`Payment confirmed for invoice ${inv.id}!`);

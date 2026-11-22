@@ -4,68 +4,360 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Account - Unit University SIMS</title>
-    <link rel="stylesheet" href="css/style.css?v=8">
+    <link rel="stylesheet" href="css/style.css?v=19">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --navy: #020B2D;
+            --background: #06143A;
+            --card: #0B1E49;
+            --blue: #0878FF;
+            --cyan: #00D9FF;
+            --purple: #8055F6;
+            --white: #F4F7FF;
+        }
+
+        .hero-section {
+            min-height: 100vh;
+            width: 100%;
+            background-color: var(--navy);
+            background-image: radial-gradient(circle at 50% 45%, rgba(0, 217, 255, 0.12) 0%, rgba(2, 11, 45, 0.72) 65%, rgba(2, 11, 45, 0.88) 100%), url('images/login-campus-bg.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 18px;
+        }
+
+        .neon-button {
+            background: linear-gradient( 100deg, #0878FF, #00CFFF, #8055F6 );
+            box-shadow: 0 0 15px rgba(0, 217, 255, 0.5), 0 0 30px rgba(128, 85, 246, 0.3);
+            border-radius: 14px;
+            color: white;
+            border: 1px solid rgba(0, 217, 255, 0.45);
+            font-weight: 700;
+            cursor: pointer;
+            transition: filter 0.2s ease, transform 0.2s ease;
+        }
+
+            .neon-button:hover {
+                filter: brightness(1.08);
+                transform: translateY(-1px);
+            }
+
+        .uit-reg-card {
+            width: 100%;
+            max-width: 520px;
+            padding: 28px 30px 24px;
+            border-radius: 26px;
+            background: linear-gradient( 160deg, rgba(11, 30, 73, 0.86) 0%, rgba(6, 20, 58, 0.92) 55%, rgba(2, 11, 45, 0.94) 100% );
+            backdrop-filter: blur(22px);
+            border: 1.5px solid rgba(0, 217, 255, 0.45);
+            box-shadow: 0 0 28px rgba(0, 217, 255, 0.24), 0 0 56px rgba(128, 85, 246, 0.16), inset 0 0 20px rgba(0, 217, 255, 0.06);
+        }
+
+        .uit-reg-logo {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 14px;
+        }
+
+        .uit-reg-plate {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 18px;
+            border-radius: 16px;
+            background: rgba(244, 247, 255, 0.94);
+            border: 1.5px solid rgba(0, 217, 255, 0.75);
+            box-shadow: 0 0 24px rgba(0, 217, 255, 0.45);
+        }
+
+            .uit-reg-plate img {
+                height: 54px;
+                width: auto;
+                max-width: 260px;
+                object-fit: contain;
+                display: block;
+            }
+
+        .uit-reg-head {
+            text-align: center;
+            margin-bottom: 18px;
+        }
+
+            .uit-reg-head h2 {
+                font-size: 27px;
+                font-weight: 800;
+                color: var(--white);
+                margin-bottom: 4px;
+            }
+
+            .uit-reg-head p {
+                font-size: 13px;
+                color: #94a3b8;
+            }
+
+        .uit-reg-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .uit-reg-field {
+            margin-bottom: 13px;
+        }
+
+        .uit-reg-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-bottom: 6px;
+        }
+
+        .uit-reg-input-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .uit-reg-input {
+            width: 100%;
+            padding: 10.5px 36px 10.5px 13px;
+            border-radius: 11px;
+            border: 1px solid rgba(0, 217, 255, 0.22);
+            background: rgba(6, 20, 58, 0.78);
+            color: var(--white);
+            font-size: 13px;
+            outline: none;
+            transition: 0.2s;
+        }
+
+            .uit-reg-input.no-eye {
+                padding-right: 13px;
+            }
+
+            .uit-reg-input::placeholder {
+                color: #64748b;
+            }
+
+            .uit-reg-input:focus {
+                border-color: var(--cyan);
+                box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.16);
+            }
+
+        .uit-reg-eye {
+            position: absolute;
+            right: 9px;
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 4px;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .uit-reg-role-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            background: rgba(2, 11, 45, 0.72);
+            padding: 4px;
+            border-radius: 13px;
+            border: 1px solid rgba(0, 217, 255, 0.2);
+        }
+
+            .uit-reg-role-grid .role-card {
+                border-radius: 10px;
+                padding: 9px 12px;
+                font-size: 13px;
+                font-weight: 600;
+                color: #cbd5e1;
+                background: transparent;
+                border: none;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 7px;
+                cursor: pointer;
+                transition: 0.2s;
+            }
+
+                .uit-reg-role-grid .role-card.active {
+                    background: linear-gradient(100deg, var(--blue), var(--cyan), var(--purple));
+                    color: var(--white);
+                    box-shadow: 0 0 16px rgba(0, 217, 255, 0.45);
+                }
+
+        .uit-reg-submit-btn {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 14.5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .uit-reg-or {
+            position: relative;
+            text-align: center;
+            margin: 13px 0;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+            .uit-reg-or::before {
+                content: "";
+                position: absolute;
+                top: 50%;
+                left: 0;
+                right: 0;
+                height: 1px;
+                background: rgba(148, 163, 184, 0.2);
+            }
+
+            .uit-reg-or span {
+                position: relative;
+                background: rgba(6, 20, 58, 0.96);
+                padding: 0 12px;
+            }
+
+        .uit-reg-google {
+            width: 100%;
+            padding: 10.5px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 217, 255, 0.22);
+            background: rgba(11, 30, 73, 0.85);
+            color: var(--white);
+            font-size: 13.5px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .uit-reg-footer {
+            text-align: center;
+            margin-top: 14px;
+            font-size: 13px;
+            color: #94a3b8;
+        }
+
+            .uit-reg-footer a {
+                color: var(--cyan);
+                font-weight: 700;
+                text-decoration: none;
+            }
+
+        @media (max-width: 580px) {
+            .uit-reg-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
-<body>
-    <div class="login-wrapper">
-        <div class="login-banner">
-            <div class="brand-logo-wrap">
+<body class="hero-section">
+    <div class="uit-reg-card">
+        <div class="uit-reg-logo">
+            <div class="uit-reg-plate">
                 <img src="images/UIT Unit University Logo.png" alt="UIT Unit University">
             </div>
-            <div class="banner-hero">
-                <h1>Shape Your Future<br>With Unit University</h1>
-                <p>Learn • Grow • Create</p>
-            </div>
-            <div class="banner-badges">
-                <div class="badge-pill"><i data-lucide="book-open" style="width:15px;height:15px;"></i> Modern Academic Portal</div>
-                <div class="badge-pill"><i data-lucide="bar-chart-3" style="width:15px;height:15px;"></i> Real-time Progress Tracking</div>
-            </div>
         </div>
 
-        <div class="login-form-side">
-            <div class="login-box" style="max-width: 500px;">
-                <h2>Create Account</h2>
-                <p class="login-subtitle">Join Unit University today!</p>
-
-                <form id="registerForm">
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                        <div class="form-group"><label>Full Name</label><input type="text" id="regFullName" class="input-control" placeholder="Full name" required></div>
-                        <div class="form-group"><label>University Email</label><input type="email" id="regEmail" class="input-control" placeholder="Email address" required></div>
-                    </div>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                        <div class="form-group"><label id="codeLabel">Student ID (Optional)</label><input type="text" id="regCode" class="input-control" placeholder="e.g. SV006"></div>
-                        <div class="form-group"><label>Phone Number</label><input type="tel" id="regPhone" class="input-control" placeholder="Phone number" required></div>
-                    </div>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                        <div class="form-group"><label>Password</label><input type="password" id="regPass" class="input-control" placeholder="Password" required></div>
-                        <div class="form-group"><label>Confirm Password</label><input type="password" id="regConfirmPass" class="input-control" placeholder="Confirm password" required></div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Select Account Role</label>
-                        <div class="role-tabs" style="grid-template-columns:1fr 1fr;">
-                            <button type="button" class="role-tab role-card active" data-role="Student">Student</button>
-                            <button type="button" class="role-tab role-card" data-role="Teacher">Lecturer</button>
-                        </div>
-                    </div>
-
-                    <p id="regMessage" style="font-size: 13px; margin-bottom: 10px; display: none;"></p>
-                    <button type="submit" class="btn-primary">Create Account</button>
-                </form>
-
-                <button type="button" class="btn-google" id="btnGoogleReg">
-                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" width="18" alt="Google">
-                    <span>Sign up with Google</span>
-                </button>
-
-                <p style="text-align:center; margin-top:16px; font-size:13px; color:var(--text-muted);">
-                    Already have an account? <a href="login.html" style="color:var(--cyan-glow); font-weight:600; text-decoration:none;">Sign in</a>
-                </p>
-            </div>
+        <div class="uit-reg-head">
+            <h2>Create Account</h2>
+            <p>Join Unit University today!</p>
         </div>
+
+        <form id="registerForm">
+            <div class="uit-reg-grid">
+                <div class="uit-reg-field">
+                    <label class="uit-reg-label"><i data-lucide="user" style="width:13px;height:13px;color:#94a3b8;"></i><span>Full Name</span></label>
+                    <input type="text" id="regFullName" class="uit-reg-input no-eye" placeholder="Enter your full name" required>
+                </div>
+                <div class="uit-reg-field">
+                    <label class="uit-reg-label"><i data-lucide="mail" style="width:13px;height:13px;color:#94a3b8;"></i><span>University Email</span></label>
+                    <input type="email" id="regEmail" class="uit-reg-input no-eye" placeholder="Enter your email address" required>
+                </div>
+            </div>
+
+            <div class="uit-reg-grid">
+                <div class="uit-reg-field">
+                    <label class="uit-reg-label" id="codeLabel"><i data-lucide="id-card" style="width:13px;height:13px;color:#94a3b8;"></i><span>Student ID (Optional)</span></label>
+                    <input type="text" id="regCode" class="uit-reg-input no-eye" placeholder="e.g. SV006">
+                </div>
+                <div class="uit-reg-field">
+                    <label class="uit-reg-label"><i data-lucide="phone" style="width:13px;height:13px;color:#94a3b8;"></i><span>Phone Number</span></label>
+                    <input type="tel" id="regPhone" class="uit-reg-input no-eye" placeholder="Enter your phone number" required>
+                </div>
+            </div>
+
+            <div class="uit-reg-grid">
+                <div class="uit-reg-field">
+                    <label class="uit-reg-label"><i data-lucide="lock" style="width:13px;height:13px;color:#94a3b8;"></i><span>Password</span></label>
+                    <div class="uit-reg-input-wrap">
+                        <input type="password" id="regPass" class="uit-reg-input" placeholder="Create a password" required>
+                        <button type="button" class="uit-reg-eye" data-target="regPass" aria-label="Toggle password"><i data-lucide="eye" style="width:15px;height:15px;"></i></button>
+                    </div>
+                </div>
+                <div class="uit-reg-field">
+                    <label class="uit-reg-label"><i data-lucide="lock" style="width:13px;height:13px;color:#94a3b8;"></i><span>Confirm Password</span></label>
+                    <div class="uit-reg-input-wrap">
+                        <input type="password" id="regConfirmPass" class="uit-reg-input" placeholder="Confirm your password" required>
+                        <button type="button" class="uit-reg-eye" data-target="regConfirmPass" aria-label="Toggle confirm password"><i data-lucide="eye" style="width:15px;height:15px;"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="uit-reg-field">
+                <label class="uit-reg-label"><span>Select Account Role</span></label>
+                <div class="uit-reg-role-grid">
+                    <button type="button" class="role-card active" data-role="Student"><i data-lucide="graduation-cap" style="width:15px;height:15px;"></i> Student</button>
+                    <button type="button" class="role-card" data-role="Teacher"><i data-lucide="users" style="width:15px;height:15px;"></i> Lecturer</button>
+                </div>
+            </div>
+
+            <p id="regMessage" style="font-size: 13px; margin-bottom: 10px; display: none;"></p>
+
+            <button type="submit" class="neon-button uit-reg-submit-btn">
+                <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+                <span>Create Account</span>
+            </button>
+        </form>
+
+        <div class="uit-reg-or"><span>or</span></div>
+
+        <button type="button" class="uit-reg-google" id="btnGoogleReg">
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" width="18" alt="Google">
+            <span>Sign up with Google</span>
+        </button>
+
+        <p class="uit-reg-footer">
+            Already have an account? <a href="login.html">Sign in</a>
+        </p>
     </div>
 
-    <script src="js/register.js?v=8"></script>
+    <script src="js/register.js?v=19"></script>
+    <script>
+                document.querySelectorAll('.uit-reg-eye').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const inp = document.getElementById(btn.dataset.target);
+                        if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+                    });
+                });
+                document.getElementById('btnGoogleReg')?.addEventListener('click', () => {
+                    alert('Please fill out the registration form to create an account.');
+                });
+    </script>
 </body>
 </html>

@@ -360,7 +360,7 @@ function renderContent() {
             </div>`;
 
         document.getElementById('btnRunScholarshipEval')?.addEventListener('click', async () => {
-            const res = await fetch('/api/portal/admin/evaluate-scholarships', { method: 'POST' });
+            const res = await fetch('/api/academic/evaluate-scholarships', { method: 'POST' });
             if (res.ok) {
                 const d = await res.json();
                 await syncPortalState();
@@ -407,7 +407,7 @@ function renderContent() {
             document.getElementById('btnSubmitNewEvt')?.addEventListener('click', async () => {
                 const title = document.getElementById('evtTitle').value.trim();
                 if (!title) return;
-                const res = await fetch('/api/portal/events', {
+                const res = await fetch('/api/academic/events', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -432,7 +432,7 @@ function renderContent() {
             <div class="page-header">
                 <div><h1>Academic Email &amp; Class Notification Center</h1><p style="color:var(--text-muted)">Select specific classes to automatically notify all enrolled students &amp; assigned lecturer</p></div>
                 <div style="display:flex; gap:10px;">
-                    <button class="btn-outline" id="btnForceSqlSync"><i data-lucide="database" style="width:15px;height:15px;"></i> Sync to SQL Server</button>
+                    <button class="btn-outline" id="btnForceSqlSync"><i data-lucide="database" style="width:15px;height:15px;"></i> Refresh from PostgreSQL</button>
                     <button class="btn-action" id="btnOpenTuitionQrModal"><i data-lucide="qr-code" style="width:16px;height:16px;"></i> Publish Tuition + QR Email</button>
                 </div>
             </div>
@@ -528,19 +528,15 @@ function renderContent() {
         });
 
         document.getElementById('btnForceSqlSync')?.addEventListener('click', async () => {
-            const res = await fetch('/api/portal/sync-db', { method: 'POST' });
-            if (res.ok) {
-                const d = await res.json();
-                await syncPortalState();
-                alert(`${d.message} (${d.students} Students, ${d.teachers} Teachers synced)`);
-            }
+            await syncPortalState();
+            renderContent();
+            alert(`Synced ${cache.students.length} Students and ${cache.teachers.length} Lecturers from PostgreSQL!`);
         });
 
         document.getElementById('btnOpenTuitionQrModal')?.addEventListener('click', openPublishTuitionModal);
 
         document.getElementById('btnDispatchAcademicEmail')?.addEventListener('click', async () => {
             const group = document.getElementById('mailTargetGroup').value;
-            const category = document.getElementById('mailCategory').value;
             const subject = document.getElementById('mailSubject').value.trim();
             const body = document.getElementById('mailBody').value.trim();
 
@@ -555,29 +551,40 @@ function renderContent() {
                 return;
             }
 
-            const includeLecturer = document.getElementById('chkIncludeClassLecturer')?.checked ?? true;
-            const singleRecipients = group === 'Single' ? [document.getElementById('mailSingleAddress').value.trim()] : [];
-
-            const res = await fetch('/api/portal/admin/send-email', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    targetGroup: group,
-                    classIds: selectedClassIds,
-                    includeLecturer,
-                    category,
-                    subject,
-                    body,
-                    recipientEmails: singleRecipients
-                })
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                await syncPortalState();
-                alert(`Dispatched to ${data.targetLabel} (${data.emailsSent}/${data.totalTargets} SMTP emails delivered)!`);
-                renderContent();
+            let recipients = [];
+            if (group === 'Single') {
+                const addr = document.getElementById('mailSingleAddress').value.trim();
+                if (!addr) { alert('Please enter recipient email.'); return; }
+                recipients = [addr];
+            } else if (group === 'Students') {
+                recipients = cache.students.map(s => s.email);
+            } else if (group === 'Lecturers') {
+                recipients = cache.teachers.map(t => t.email);
+            } else if (group === 'All') {
+                recipients = [...cache.students.map(s => s.email), ...cache.teachers.map(t => t.email)];
+            } else if (group === 'Class') {
+                recipients = cache.students.filter(s => selectedClassIds.includes(s.classId)).map(s => s.email);
+                const includeLecturer = document.getElementById('chkIncludeClassLecturer')?.checked ?? true;
+                if (includeLecturer) {
+                    const lecIds = cache.classes.filter(cl => selectedClassIds.includes(cl.id)).map(cl => cl.lecturerId);
+                    recipients.push(...cache.teachers.filter(t => lecIds.includes(t.id)).map(t => t.email));
+                }
             }
+
+            recipients = [...new Set(recipients.filter(Boolean))];
+            let sentCount = 0;
+            for (const toEmail of recipients) {
+                const res = await fetch('/api/auth/send-student-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ toEmail, subject, message: body })
+                });
+                if (res.ok) sentCount++;
+            }
+
+            await syncPortalState();
+            alert(`Sent ${sentCount}/${recipients.length} email(s)!`);
+            renderContent();
         });
 
     } else if (activeTab === 'support') {
@@ -647,7 +654,7 @@ function renderContent() {
                 const adminReply = document.getElementById('repTicketBody').value.trim();
                 if (!adminReply) return;
 
-                const res = await fetch('/api/portal/admin/reply-ticket', {
+                const res = await fetch('/api/academic/reply-ticket', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ticketId: t.id, status, adminReply })
@@ -866,18 +873,19 @@ function openAddStudentModal() {
             email: document.getElementById('stEmail').value.trim(),
             major,
             classId,
+            dateOfBirth: '2006-05-15',
             gpa: parseFloat(document.getElementById('stGpa').value) || 3.5
         };
         if (!payload.fullName || !payload.email) return;
 
-        const res = await fetch('/api/portal/students', {
+        const res = await fetch('/api/student/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            alert(err.message || 'Cannot add student to this class!');
+            alert(err.message || err.error || 'Cannot add student to this class!');
             return;
         }
         await syncPortalState();
@@ -915,16 +923,17 @@ function openEditStudentModal(id) {
             email: document.getElementById('edStEmail').value.trim(),
             major: document.getElementById('edStMajor').value,
             classId: document.getElementById('edStClass').value,
+            dateOfBirth: s.dateOfBirth || '2006-05-15',
             gpa: parseFloat(document.getElementById('edStGpa').value) || 3.5
         };
-        const res = await fetch(`/api/portal/students/${s.id}`, {
+        const res = await fetch(`/api/student/${s.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            alert(err.message || 'Update failed!');
+            alert(err.message || err.error || 'Update failed!');
             return;
         }
         await syncPortalState();
@@ -935,7 +944,7 @@ function openEditStudentModal(id) {
 
 async function deleteStudent(id) {
     if (!confirm(`Delete student ${id}?`)) return;
-    await fetch(`/api/portal/students/${id}`, { method: 'DELETE' });
+    await fetch(`/api/student/${id}`, { method: 'DELETE' });
     await syncPortalState();
     renderContent();
 }
@@ -962,7 +971,7 @@ function openAddTeacherModal() {
             phone: '0901234567'
         };
         if (!payload.fullName || !payload.email) return;
-        await fetch('/api/portal/teachers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        await fetch('/api/teacher', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         await syncPortalState();
         closeModal();
         renderContent();
@@ -984,7 +993,7 @@ function openEditTeacherModal(id) {
         <button class="btn-primary" id="btnSaveEditTeacher">Save Changes</button>
     `);
     document.getElementById('btnSaveEditTeacher')?.addEventListener('click', async () => {
-        await fetch(`/api/portal/teachers/${t.id}`, {
+        await fetch(`/api/teacher/${t.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1003,7 +1012,7 @@ function openEditTeacherModal(id) {
 
 async function deleteTeacher(id) {
     if (!confirm(`Delete lecturer ${id}?`)) return;
-    await fetch(`/api/portal/teachers/${id}`, { method: 'DELETE' });
+    await fetch(`/api/teacher/${id}`, { method: 'DELETE' });
     await syncPortalState();
     renderContent();
 }
@@ -1051,7 +1060,7 @@ function openAddClassModal() {
             status: 'Active'
         };
         if (!payload.id || !payload.name) return;
-        await fetch('/api/portal/classes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        await fetch('/api/academic/classes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         await syncPortalState();
         closeModal();
         renderContent();
@@ -1074,7 +1083,7 @@ function openPublishTuitionModal() {
     `);
 
     document.getElementById('btnSubmitPublishTuition')?.addEventListener('click', async () => {
-        const res = await fetch('/api/portal/admin/publish-tuition', {
+        const res = await fetch('/api/academic/publish-tuition', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1110,10 +1119,10 @@ function openQuickPersonEmailModal(email, name) {
         const subject = document.getElementById('qpSubj').value.trim();
         const body = document.getElementById('qpBody').value.trim();
         if (!subject || !body) return;
-        const res = await fetch('/api/portal/admin/send-email', {
+        const res = await fetch('/api/auth/send-student-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ targetGroup: 'Single', category: 'Direct Notice', subject, body, recipientEmails: [email] })
+            body: JSON.stringify({ toEmail: email, subject, message: body })
         });
         if (res.ok) {
             await syncPortalState();

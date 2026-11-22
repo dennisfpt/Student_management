@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using StudentManagement.Domain.Entities;
@@ -9,7 +10,7 @@ public static class DbSeeder
 {
     public static async Task SeedAsync(AppDbContext context)
     {
-        // 1. Seed & Sync UNIT University Accounts (Chạy mỗi lần khởi động để đảm bảo đúng tài khoản)
+        // 1. Seed & Sync UNIT University Accounts
         var unitAccounts = new List<UserAccount>
         {
             new() { Username = "admin@unit.edu.vn", PasswordHash = HashPassword("Admin@123"), FullName = "Admin Mark Averous", Role = "Admin" },
@@ -33,20 +34,62 @@ public static class DbSeeder
         }
         await context.SaveChangesAsync();
 
-        // 2. Seed Students (English)
-        // 2. Seed Students (English)
+        // 2. Seed đầy đủ 500 Students trên 18 lớp (14 * 28 + 4 * 27 = 500)
         if (!await context.Students.AnyAsync())
         {
-            context.Students.AddRange(
-                new Student { Id = "SV001", FullName = "Nguyen Van An", Email = "an.nv@unit.edu.vn", DateOfBirth = new DateTime(2005, 5, 12, 0, 0, 0, DateTimeKind.Utc), Gpa = 3.8 },
-                new Student { Id = "SV002", FullName = "Tran Thi Bich", Email = "bich.tt@unit.edu.vn", DateOfBirth = new DateTime(2005, 8, 20, 0, 0, 0, DateTimeKind.Utc), Gpa = 3.5 },
-                new Student { Id = "SV003", FullName = "Le Minh Cuong", Email = "cuong.lm@unit.edu.vn", DateOfBirth = new DateTime(2005, 2, 14, 0, 0, 0, DateTimeKind.Utc), Gpa = 3.9 },
-                new Student { Id = "SV004", FullName = "Pham Thi Dung", Email = "dung.pt@unit.edu.vn", DateOfBirth = new DateTime(2005, 11, 2, 0, 0, 0, DateTimeKind.Utc), Gpa = 3.2 }
-            );
+            string[] classIds = new[]
+            {
+                "IT-K26A1", "IT-K26A2", "IT-K26A3", "IT-K26B1", "IT-K26B2", "IT-K26B3",
+                "MKT-K26A1", "MKT-K26A2", "MKT-K26A3", "MKT-K26B1", "MKT-K26B2", "MKT-K26B3",
+                "GD-K26A1", "GD-K26A2", "GD-K26A3", "GD-K26B1", "GD-K26B2", "GD-K26B3"
+            };
+
+            string[] lastNames = new[] { "Nguyen", "Tran", "Le", "Pham", "Hoang", "Huynh", "Phan", "Vu", "Vo", "Dang", "Bui", "Do", "Ho", "Ngo", "Duong" };
+            string[] midNames = new[] { "Van", "Thi", "Minh", "Hoang", "Ngoc", "Thanh", "Quoc", "Gia", "Anh", "Khanh" };
+            string[] firstNames = new[] { "An", "Binh", "Chau", "Dung", "Duy", "Giang", "Ha", "Hai", "Hieu", "Huy", "Khoa", "Linh", "Long", "Mai", "Nam", "Nga", "Nhi", "Phong", "Phuc", "Quynh", "Son", "Tam", "Thao", "Trang", "Tuan", "Vy", "Yen" };
+
+            var studentsToSeed = new List<Student>(500);
+            int counter = 1;
+
+            for (int cIdx = 0; cIdx < classIds.Length; cIdx++)
+            {
+                int targetSize = cIdx < 14 ? 28 : 27;
+
+                for (int s = 0; s < targetSize; s++)
+                {
+                    string stId = $"SV26{counter:D3}";
+                    string fullName = counter == 1
+                        ? "Nguyen Thi Mai"
+                        : $"{lastNames[(counter * 3) % lastNames.Length]} {midNames[(counter * 7) % midNames.Length]} {firstNames[(counter * 11) % firstNames.Length]}";
+
+                    string email = counter == 1
+                        ? "an.nv@unit.edu.vn"
+                        : $"sv26{counter:D3}@unit.edu.vn";
+
+                    int month = (counter % 12) + 1;
+                    int day = (counter % 27) + 1;
+                    double gpa = Math.Round(2.6 + ((counter * 17) % 140) / 100.0, 2);
+
+                    studentsToSeed.Add(new Student
+                    {
+                        Id = stId,
+                        FullName = fullName,
+                        Email = email,
+                        DateOfBirth = new DateTime(2006, month, day, 0, 0, 0, DateTimeKind.Utc),
+                        Gpa = gpa
+                    });
+
+                    counter++;
+                }
+            }
+
+            Debug.Assert(studentsToSeed.Count == 500, $"Expected 500 students, got {studentsToSeed.Count}");
+
+            await context.Students.AddRangeAsync(studentsToSeed);
             await context.SaveChangesAsync();
         }
 
-        // 3. Seed Lecturers / Faculty (English)
+        // 3. Seed Lecturers / Faculty
         if (!await context.Teachers.AnyAsync())
         {
             context.Teachers.AddRange(
@@ -57,7 +100,7 @@ public static class DbSeeder
             await context.SaveChangesAsync();
         }
 
-        // 4. Seed Courses (English)
+        // 4. Seed Courses
         if (!await context.Courses.AnyAsync())
         {
             context.Courses.AddRange(
@@ -71,7 +114,7 @@ public static class DbSeeder
         // 5. Seed Sample Grades
         if (!await context.Grades.AnyAsync() && await context.Students.AnyAsync())
         {
-            var firstStudent = await context.Students.FirstAsync();
+            var firstStudent = await context.Students.OrderBy(s => s.Id).FirstAsync();
             context.Grades.AddRange(
                 new Grade { StudentId = firstStudent.Id, CourseId = "PROG101", MidtermScore = 8.5, FinalScore = 9.0, TotalGpa = 3.6, Status = "Pass" },
                 new Grade { StudentId = firstStudent.Id, CourseId = "MATH201", MidtermScore = 7.5, FinalScore = 8.0, TotalGpa = 3.2, Status = "Pass" }
