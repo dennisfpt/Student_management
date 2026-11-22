@@ -44,7 +44,7 @@ static string NormalizePostgresConnectionString(string value)
         Database = database,
         Username = username,
         Password = password,
-        SslMode = SslMode.Prefer
+        SslMode = SslMode.Require
     };
 
     return npgsqlBuilder.ConnectionString;
