@@ -1,0 +1,49 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Unit University SIMS</title>
+    <link rel="stylesheet" href="css/style.css?v=8">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-logo-wrap" style="padding:6px 10px;">
+                    <img src="images/UIT Unit University Logo.png" alt="UIT Logo" style="height:36px;">
+                </div>
+                <span class="sidebar-sims-tag">SIMS • Student</span>
+            </div>
+            <nav class="sidebar-menu" id="sidebarMenu"></nav>
+        </aside>
+        <div class="main-area">
+            <header class="topbar">
+                <div class="topbar-search">
+                    <i data-lucide="search"></i>
+                    <input type="text" id="globalSearch" placeholder="Search subjects, grades, invoices...">
+                </div>
+                <div class="topbar-user">
+                    <span class="role-badge" id="userRoleBadge">Student</span>
+                    <strong id="userNameDisplay" style="font-size: 13.5px;">Student</strong>
+                    <button class="btn-logout" id="btnLogout"><i data-lucide="log-out" style="width:14px;height:14px;"></i> Sign Out</button>
+                </div>
+            </header>
+            <main class="content-body" id="mainContent"></main>
+        </div>
+    </div>
+    <div class="modal-backdrop" id="appModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modalTitle">Action</h3>
+                <button id="btnCloseModal" style="border:none; background:none; color:#94a3b8; font-size:20px; cursor:pointer;">✕</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+    <script src="js/app.js?v=2026"></script>
+    <script src="js/student.js?v=2026"></script>
+</body>
+</html>

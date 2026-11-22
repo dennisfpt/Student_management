@@ -1,0 +1,71 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account - Unit University SIMS</title>
+    <link rel="stylesheet" href="css/style.css?v=8">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-banner">
+            <div class="brand-logo-wrap">
+                <img src="images/UIT Unit University Logo.png" alt="UIT Unit University">
+            </div>
+            <div class="banner-hero">
+                <h1>Shape Your Future<br>With Unit University</h1>
+                <p>Learn • Grow • Create</p>
+            </div>
+            <div class="banner-badges">
+                <div class="badge-pill"><i data-lucide="book-open" style="width:15px;height:15px;"></i> Modern Academic Portal</div>
+                <div class="badge-pill"><i data-lucide="bar-chart-3" style="width:15px;height:15px;"></i> Real-time Progress Tracking</div>
+            </div>
+        </div>
+
+        <div class="login-form-side">
+            <div class="login-box" style="max-width: 500px;">
+                <h2>Create Account</h2>
+                <p class="login-subtitle">Join Unit University today!</p>
+
+                <form id="registerForm">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div class="form-group"><label>Full Name</label><input type="text" id="regFullName" class="input-control" placeholder="Full name" required></div>
+                        <div class="form-group"><label>University Email</label><input type="email" id="regEmail" class="input-control" placeholder="Email address" required></div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div class="form-group"><label id="codeLabel">Student ID (Optional)</label><input type="text" id="regCode" class="input-control" placeholder="e.g. SV006"></div>
+                        <div class="form-group"><label>Phone Number</label><input type="tel" id="regPhone" class="input-control" placeholder="Phone number" required></div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div class="form-group"><label>Password</label><input type="password" id="regPass" class="input-control" placeholder="Password" required></div>
+                        <div class="form-group"><label>Confirm Password</label><input type="password" id="regConfirmPass" class="input-control" placeholder="Confirm password" required></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Select Account Role</label>
+                        <div class="role-tabs" style="grid-template-columns:1fr 1fr;">
+                            <button type="button" class="role-tab role-card active" data-role="Student">Student</button>
+                            <button type="button" class="role-tab role-card" data-role="Teacher">Lecturer</button>
+                        </div>
+                    </div>
+
+                    <p id="regMessage" style="font-size: 13px; margin-bottom: 10px; display: none;"></p>
+                    <button type="submit" class="btn-primary">Create Account</button>
+                </form>
+
+                <button type="button" class="btn-google" id="btnGoogleReg">
+                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" width="18" alt="Google">
+                    <span>Sign up with Google</span>
+                </button>
+
+                <p style="text-align:center; margin-top:16px; font-size:13px; color:var(--text-muted);">
+                    Already have an account? <a href="login.html" style="color:var(--cyan-glow); font-weight:600; text-decoration:none;">Sign in</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/register.js?v=8"></script>
+</body>
+</html>
