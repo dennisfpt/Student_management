@@ -34,13 +34,14 @@ public static class DbSeeder
         await context.SaveChangesAsync();
 
         // 2. Seed Students (English)
+        // 2. Seed Students (English)
         if (!await context.Students.AnyAsync())
         {
             context.Students.AddRange(
-                new Student { Id = "SV001", FullName = "Nguyen Van An", Email = "an.nv@unit.edu.vn", DateOfBirth = new DateTime(2005, 5, 12), Gpa = 3.8 },
-                new Student { Id = "SV002", FullName = "Tran Thi Bich", Email = "bich.tt@unit.edu.vn", DateOfBirth = new DateTime(2005, 8, 20), Gpa = 3.5 },
-                new Student { Id = "SV003", FullName = "Le Minh Cuong", Email = "cuong.lm@unit.edu.vn", DateOfBirth = new DateTime(2005, 2, 14), Gpa = 3.9 },
-                new Student { Id = "SV004", FullName = "Pham Thi Dung", Email = "dung.pt@unit.edu.vn", DateOfBirth = new DateTime(2005, 11, 2), Gpa = 3.2 }
+                new Student { Id = "SV001", FullName = "Nguyen Van An", Email = "an.nv@unit.edu.vn", DateOfBirth = new DateTime(2005, 5, 12, 0, 0, 0, DateTimeKind.Utc), Gpa = 3.8 },
+                new Student { Id = "SV002", FullName = "Tran Thi Bich", Email = "bich.tt@unit.edu.vn", DateOfBirth = new DateTime(2005, 8, 20, 0, 0, 0, DateTimeKind.Utc), Gpa = 3.5 },
+                new Student { Id = "SV003", FullName = "Le Minh Cuong", Email = "cuong.lm@unit.edu.vn", DateOfBirth = new DateTime(2005, 2, 14, 0, 0, 0, DateTimeKind.Utc), Gpa = 3.9 },
+                new Student { Id = "SV004", FullName = "Pham Thi Dung", Email = "dung.pt@unit.edu.vn", DateOfBirth = new DateTime(2005, 11, 2, 0, 0, 0, DateTimeKind.Utc), Gpa = 3.2 }
             );
             await context.SaveChangesAsync();
         }
