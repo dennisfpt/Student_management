@@ -533,7 +533,7 @@ namespace StudentManagement.API.Controllers
 
                 db.Database.EnsureCreated();
 
-                if (!db.Students.Any())
+                if (db.Students.Count() < 10)
                 {
                     var initial = SeedInitial500Students();
                     SaveState(initial);
