@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using StudentManagement.Domain.Entities;
+using StudentManagement.Infrastructure.Data;
 
 namespace StudentManagement.API.Controllers
 {
@@ -11,7 +12,6 @@ namespace StudentManagement.API.Controllers
     [Route("api/portal")]
     public class PortalDynamicController : ControllerBase
     {
-        private static readonly string DataFile = Path.Combine(AppContext.BaseDirectory, "sims_dynamic_state.json");
         private static readonly object _lock = new();
         private readonly IServiceProvider _serviceProvider;
 
@@ -281,6 +281,13 @@ namespace StudentManagement.API.Controllers
             return Convert.ToHexString(bytes);
         }
 
+        private static DateTime ParseUtcDate(string? dateStr)
+        {
+            if (!string.IsNullOrWhiteSpace(dateStr) && DateTime.TryParse(dateStr, out var dt))
+                return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+            return new DateTime(2006, 5, 15, 0, 0, 0, DateTimeKind.Utc);
+        }
+
         private static void WriteAuditLog(PortalState state, string actor, string action, string target, string detail)
         {
             state.AuditLogs.Insert(0, new AuditLogDto
@@ -339,7 +346,7 @@ namespace StudentManagement.API.Controllers
             state.Courses = new List<CourseRecordDto>
             {
                 new() { Id = "IT101", Name = "ASP.NET Core & Web Architecture", Credits = 3, Department = "Information Technology" },
-                new() { Id = "IT202", Name = "Database Systems & SQL Server", Credits = 3, Department = "Information Technology" },
+                new() { Id = "IT202", Name = "Database Systems & PostgreSQL", Credits = 3, Department = "Information Technology" },
                 new() { Id = "MKT101", Name = "Digital Marketing & SEO Strategy", Credits = 3, Department = "Marketing" },
                 new() { Id = "MKT202", Name = "Consumer Behavior & Brand Analytics", Credits = 3, Department = "Marketing" },
                 new() { Id = "GD101", Name = "Typography & Visual Communication", Credits = 3, Department = "Graphic Design" },
@@ -435,7 +442,7 @@ namespace StudentManagement.API.Controllers
                 ClassId = "IT-K26A1",
                 CourseName = "ASP.NET Core & Web Architecture",
                 LecturerName = "Dr. Nguyen Van Minh",
-                Title = "Lab 01: Clean Architecture RESTful API & SQL Server",
+                Title = "Lab 01: Clean Architecture RESTful API & PostgreSQL",
                 Description = "Submit your GitHub repository link or ZIP archive implementing 4-layer architecture (Domain, Application, Infrastructure, API).",
                 DueDate = "2026-12-05 23:59",
                 CreatedAt = "2026-11-22 08:30"
@@ -506,30 +513,231 @@ namespace StudentManagement.API.Controllers
                 Status = "Upcoming"
             });
 
-            WriteAuditLog(state, "System Kernel", "SYSTEM_INIT", "StudentManagementDb", "Initialized 500 students across 3 faculties (IT, Marketing, Graphic Design) and 18 class sections.");
+            WriteAuditLog(state, "System Kernel", "SYSTEM_INIT", "PostgreSQL", "Initialized 500 students across 3 faculties (IT, Marketing, Graphic Design) and 18 class sections.");
 
             return state;
+        }
+
+        private AppDbContext? ResolveAppDbContext()
+        {
+            return _serviceProvider.GetService(typeof(AppDbContext)) as AppDbContext;
         }
 
         private PortalState LoadState()
         {
             lock (_lock)
             {
-                if (!System.IO.File.Exists(DataFile))
+                var db = ResolveAppDbContext();
+                if (db == null)
+                    return SeedInitial500Students();
+
+                db.Database.EnsureCreated();
+
+                if (!db.Students.Any())
                 {
                     var initial = SeedInitial500Students();
                     SaveState(initial);
-                    SyncAllToSqlServer(initial);
                     return initial;
                 }
-                var json = System.IO.File.ReadAllText(DataFile);
-                var state = JsonSerializer.Deserialize<PortalState>(json) ?? SeedInitial500Students();
-                if (state.Students.Count < 10 || string.IsNullOrEmpty(state.Students[0].Major))
+
+                var classMap = db.ClassSections.AsNoTracking().ToDictionary(c => c.Id, c => c.Department, StringComparer.OrdinalIgnoreCase);
+
+                var state = new PortalState
                 {
-                    state = SeedInitial500Students();
-                    SaveState(state);
-                    SyncAllToSqlServer(state);
+                    Students = db.Students.AsNoTracking().Select(s => new StudentRecordDto
+                    {
+                        Id = s.Id,
+                        FullName = s.FullName,
+                        Email = s.Email,
+                        Major = classMap.TryGetValue(s.Id, out var m) ? m : "Information Technology",
+                        ClassId = "IT-K26A1",
+                        DateOfBirth = s.DateOfBirth.ToString("yyyy-MM-dd"),
+                        Gpa = s.Gpa,
+                        Status = "Active"
+                    }).ToList(),
+
+                    Teachers = db.Teachers.AsNoTracking().Select(t => new TeacherRecordDto
+                    {
+                        Id = t.Id,
+                        FullName = t.FullName,
+                        Email = t.Email,
+                        Department = t.Department,
+                        Phone = t.PhoneNumber
+                    }).ToList(),
+
+                    Classes = db.ClassSections.AsNoTracking().Select(c => new ClassSectionDto
+                    {
+                        Id = c.Id,
+                        Name = c.Name,
+                        Department = c.Department,
+                        LecturerId = c.LecturerId,
+                        LecturerName = c.LecturerName,
+                        MaxCapacity = c.MaxCapacity,
+                        Status = c.Status
+                    }).ToList(),
+
+                    Courses = db.Courses.AsNoTracking().Select(c => new CourseRecordDto
+                    {
+                        Id = c.Id,
+                        Name = c.Title,
+                        Credits = c.Credits,
+                        Department = c.LecturerName
+                    }).ToList(),
+
+                    Accounts = db.UserAccounts.AsNoTracking().Select(a => new UserAccountDto
+                    {
+                        Email = a.Username,
+                        PasswordHash = a.PasswordHash,
+                        FullName = a.FullName,
+                        Role = a.Role,
+                        UserCode = "",
+                        Major = ""
+                    }).ToList(),
+
+                    Profiles = db.StudentProfiles.AsNoTracking().Select(p => new StudentProfileDto
+                    {
+                        Email = p.Email,
+                        StudentId = p.StudentId,
+                        FullName = p.FullName,
+                        Phone = p.Phone,
+                        Major = p.Major,
+                        AvatarBase64 = p.AvatarBase64
+                    }).ToList(),
+
+                    Invoices = db.TuitionInvoices.AsNoTracking().Select(i => new TuitionInvoiceDto
+                    {
+                        Id = i.Id,
+                        StudentEmail = i.StudentEmail,
+                        Semester = i.Semester,
+                        Credits = i.Credits,
+                        AmountVnd = i.AmountVnd,
+                        Note = i.Note,
+                        BankCode = i.BankCode,
+                        AccountNo = i.AccountNo,
+                        AccountName = i.AccountName,
+                        Paid = i.Paid,
+                        CreatedAt = i.CreatedAt,
+                        RecipientEmails = JsonSerializer.Deserialize<List<string>>(i.RecipientEmailsJson) ?? new()
+                    }).ToList(),
+
+                    Announcements = db.Announcements.AsNoTracking().Select(a => new AnnouncementDto
+                    {
+                        Id = a.Id,
+                        Category = a.Category,
+                        TargetGroup = a.TargetGroup,
+                        TargetClassIds = JsonSerializer.Deserialize<List<string>>(a.TargetClassIdsJson) ?? new(),
+                        Title = a.Title,
+                        Message = a.Message,
+                        InvoiceId = a.InvoiceId,
+                        AmountVnd = a.AmountVnd,
+                        CreatedAt = a.CreatedAt
+                    }).ToList(),
+
+                    Tickets = db.SupportTickets.AsNoTracking().Select(t => new SupportTicketDto
+                    {
+                        Id = t.Id,
+                        StudentId = t.StudentId,
+                        StudentName = t.StudentName,
+                        StudentEmail = t.StudentEmail,
+                        Category = t.Category,
+                        Subject = t.Subject,
+                        Description = t.Description,
+                        Status = t.Status,
+                        AdminReply = t.AdminReply,
+                        CreatedAt = t.CreatedAt,
+                        UpdatedAt = t.UpdatedAt
+                    }).ToList(),
+
+                    Assignments = db.PortalAssignments.AsNoTracking().Select(a => new AssignmentDto
+                    {
+                        Id = a.Id,
+                        ClassId = a.ClassId,
+                        CourseName = a.CourseName,
+                        LecturerName = a.LecturerName,
+                        Title = a.Title,
+                        Description = a.Description,
+                        DueDate = a.DueDate,
+                        CreatedAt = a.CreatedAt,
+                        Submissions = JsonSerializer.Deserialize<List<SubmissionDto>>(a.SubmissionsJson) ?? new()
+                    }).ToList(),
+
+                    AttendanceRecords = db.AttendanceSummaries.AsNoTracking().Select(r => new AttendanceSummaryDto
+                    {
+                        StudentId = r.StudentId,
+                        StudentName = r.StudentName,
+                        ClassId = r.ClassId,
+                        TotalSessions = r.TotalSessions,
+                        AttendedSessions = r.AttendedSessions,
+                        AbsentSessions = r.AbsentSessions,
+                        UpdatedBy = r.UpdatedBy,
+                        UpdatedAt = r.UpdatedAt
+                    }).ToList(),
+
+                    Scholarships = db.ScholarshipAwards.AsNoTracking().Select(sc => new ScholarshipAwardDto
+                    {
+                        StudentId = sc.StudentId,
+                        StudentName = sc.StudentName,
+                        Major = sc.Major,
+                        ClassId = sc.ClassId,
+                        Gpa = sc.Gpa,
+                        Tier = sc.Tier,
+                        WaiverAmountVnd = sc.WaiverAmountVnd,
+                        AwardedAt = sc.AwardedAt
+                    }).ToList(),
+
+                    Events = db.CampusEvents.AsNoTracking().Select(e => new CampusEventDto
+                    {
+                        Id = e.Id,
+                        Title = e.Title,
+                        Organizer = e.Organizer,
+                        EventDate = e.EventDate,
+                        Venue = e.Venue,
+                        ConductPoints = e.ConductPoints,
+                        Status = e.Status,
+                        Attendees = JsonSerializer.Deserialize<List<EventAttendeeDto>>(e.AttendeesJson) ?? new()
+                    }).ToList(),
+
+                    AuditLogs = db.AuditLogs.AsNoTracking().Select(l => new AuditLogDto
+                    {
+                        Id = l.Id,
+                        Actor = l.Actor,
+                        Action = l.Action,
+                        Target = l.Target,
+                        Detail = l.Detail,
+                        Timestamp = l.Timestamp
+                    }).ToList()
+                };
+
+                // Khôi phục ClassId & Major của sinh viên nếu có lưu trong StudentProfiles
+                var profileByEmail = state.Profiles.ToDictionary(p => p.Email, p => p, StringComparer.OrdinalIgnoreCase);
+                foreach (var st in state.Students)
+                {
+                    if (profileByEmail.TryGetValue(st.Email, out var prof) && !string.IsNullOrWhiteSpace(prof.Major))
+                    {
+                        var parts = prof.Major.Split("• Class ");
+                        st.Major = parts[0].Trim();
+                        if (parts.Length > 1 && !string.IsNullOrWhiteSpace(parts[1]))
+                            st.ClassId = parts[1].Trim();
+                    }
                 }
+
+                // Khôi phục UserCode & Major của tài khoản nếu có
+                var studentByEmail = state.Students.ToDictionary(s => s.Email, s => s, StringComparer.OrdinalIgnoreCase);
+                var teacherByEmail = state.Teachers.ToDictionary(t => t.Email, t => t, StringComparer.OrdinalIgnoreCase);
+                foreach (var acc in state.Accounts)
+                {
+                    if (studentByEmail.TryGetValue(acc.Email, out var s))
+                    {
+                        acc.UserCode = s.Id;
+                        acc.Major = s.Major;
+                    }
+                    else if (teacherByEmail.TryGetValue(acc.Email, out var t))
+                    {
+                        acc.UserCode = t.Id;
+                        acc.Major = t.Department;
+                    }
+                }
+
                 return state;
             }
         }
@@ -538,144 +746,432 @@ namespace StudentManagement.API.Controllers
         {
             lock (_lock)
             {
-                var json = JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true });
-                System.IO.File.WriteAllText(DataFile, json);
-            }
-        }
-
-        private DbContext? ResolveAppDbContext()
-        {
-            var dbContextType = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => { try { return a.GetTypes(); } catch { return Array.Empty<Type>(); } })
-                .FirstOrDefault(t => !t.IsAbstract && typeof(DbContext).IsAssignableFrom(t));
-
-            return dbContextType != null ? _serviceProvider.GetService(dbContextType) as DbContext : null;
-        }
-
-        private static void SetPropIfExists(object target, string propName, object? value)
-        {
-            var prop = target.GetType().GetProperty(propName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-            if (prop == null || !prop.CanWrite || value == null) return;
-            try
-            {
-                var targetType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
-                if (targetType == typeof(DateTime) && value is string s && DateTime.TryParse(s, out var dt))
-                    prop.SetValue(target, dt);
-                else if (targetType == typeof(decimal))
-                    prop.SetValue(target, Convert.ToDecimal(value));
-                else if (targetType == typeof(double))
-                    prop.SetValue(target, Convert.ToDouble(value));
-                else if (targetType == typeof(int))
-                    prop.SetValue(target, Convert.ToInt32(value));
-                else
-                    prop.SetValue(target, Convert.ChangeType(value, targetType));
-            }
-            catch { }
-        }
-
-        private void UpsertSqlEntity(DbContext db, string tableName, string keyProp, object keyValue, Dictionary<string, object?> fields)
-        {
-            var setProp = db.GetType().GetProperties()
-                .FirstOrDefault(p => p.Name.Equals(tableName, StringComparison.OrdinalIgnoreCase) && p.PropertyType.IsGenericType);
-            if (setProp == null) return;
-
-            var entityType = setProp.PropertyType.GetGenericArguments()[0];
-            var dbSet = setProp.GetValue(db);
-            if (dbSet == null) return;
-
-            var existing = ((IEnumerable<object>)dbSet).FirstOrDefault(e =>
-                e.GetType().GetProperty(keyProp)?.GetValue(e)?.ToString()?.Equals(keyValue.ToString(), StringComparison.OrdinalIgnoreCase) == true);
-
-            if (existing == null)
-            {
-                var instance = Activator.CreateInstance(entityType);
-                if (instance == null) return;
-                SetPropIfExists(instance, keyProp, keyValue);
-                foreach (var kv in fields) SetPropIfExists(instance, kv.Key, kv.Value);
-                dbSet.GetType().GetMethod("Add")?.Invoke(dbSet, new[] { instance });
-            }
-            else
-            {
-                foreach (var kv in fields) SetPropIfExists(existing, kv.Key, kv.Value);
-            }
-        }
-
-        private void DeleteSqlEntity(DbContext db, string tableName, string keyProp, object keyValue)
-        {
-            try
-            {
-                var setProp = db.GetType().GetProperties()
-                    .FirstOrDefault(p => p.Name.Equals(tableName, StringComparison.OrdinalIgnoreCase) && p.PropertyType.IsGenericType);
-                var dbSet = setProp?.GetValue(db);
-                if (dbSet == null) return;
-
-                var existing = ((IEnumerable<object>)dbSet).FirstOrDefault(e =>
-                    e.GetType().GetProperty(keyProp)?.GetValue(e)?.ToString()?.Equals(keyValue.ToString(), StringComparison.OrdinalIgnoreCase) == true);
-
-                if (existing != null)
-                {
-                    dbSet.GetType().GetMethod("Remove")?.Invoke(dbSet, new[] { existing });
-                    db.SaveChanges();
-                }
-            }
-            catch { }
-        }
-
-        private void SyncAllToSqlServer(PortalState state)
-        {
-            try
-            {
                 var db = ResolveAppDbContext();
                 if (db == null) return;
 
+                db.Database.EnsureCreated();
+
+                // 1. Students
+                var existingStudents = db.Students.ToDictionary(s => s.Id);
+                var incomingStudentIds = state.Students.Select(s => s.Id).ToHashSet();
+                foreach (var removed in existingStudents.Values.Where(s => !incomingStudentIds.Contains(s.Id)).ToList())
+                    db.Students.Remove(removed);
+
+                foreach (var dto in state.Students)
+                {
+                    var dob = ParseUtcDate(dto.DateOfBirth);
+                    if (existingStudents.TryGetValue(dto.Id, out var ent))
+                    {
+                        ent.FullName = dto.FullName;
+                        ent.Email = dto.Email;
+                        ent.DateOfBirth = dob;
+                        ent.Gpa = dto.Gpa;
+                    }
+                    else
+                    {
+                        db.Students.Add(new Student
+                        {
+                            Id = dto.Id,
+                            FullName = dto.FullName,
+                            Email = dto.Email,
+                            DateOfBirth = dob,
+                            Gpa = dto.Gpa
+                        });
+                    }
+                }
+
+                // 2. Teachers
+                var existingTeachers = db.Teachers.ToDictionary(t => t.Id);
+                var incomingTeacherIds = state.Teachers.Select(t => t.Id).ToHashSet();
+                foreach (var removed in existingTeachers.Values.Where(t => !incomingTeacherIds.Contains(t.Id)).ToList())
+                    db.Teachers.Remove(removed);
+
+                foreach (var dto in state.Teachers)
+                {
+                    if (existingTeachers.TryGetValue(dto.Id, out var ent))
+                    {
+                        ent.FullName = dto.FullName;
+                        ent.Email = dto.Email;
+                        ent.Department = dto.Department;
+                        ent.PhoneNumber = dto.Phone;
+                    }
+                    else
+                    {
+                        db.Teachers.Add(new Teacher
+                        {
+                            Id = dto.Id,
+                            FullName = dto.FullName,
+                            Email = dto.Email,
+                            Department = dto.Department,
+                            PhoneNumber = dto.Phone
+                        });
+                    }
+                }
+
+                // 3. Courses
+                var existingCourses = db.Courses.ToDictionary(c => c.Id);
+                foreach (var dto in state.Courses)
+                {
+                    if (existingCourses.TryGetValue(dto.Id, out var ent))
+                    {
+                        ent.Title = dto.Name;
+                        ent.Credits = dto.Credits;
+                        ent.LecturerName = dto.Department;
+                    }
+                    else
+                    {
+                        db.Courses.Add(new Course
+                        {
+                            Id = dto.Id,
+                            Title = dto.Name,
+                            Credits = dto.Credits,
+                            LecturerName = dto.Department,
+                            Status = "Đang mở lớp"
+                        });
+                    }
+                }
+
+                // 4. UserAccounts
+                var existingAccounts = db.UserAccounts.ToDictionary(a => a.Username, StringComparer.OrdinalIgnoreCase);
+                foreach (var dto in state.Accounts)
+                {
+                    if (existingAccounts.TryGetValue(dto.Email, out var ent))
+                    {
+                        ent.PasswordHash = dto.PasswordHash;
+                        ent.FullName = dto.FullName;
+                        ent.Role = dto.Role;
+                    }
+                    else
+                    {
+                        db.UserAccounts.Add(new UserAccount
+                        {
+                            Username = dto.Email,
+                            PasswordHash = dto.PasswordHash,
+                            FullName = dto.FullName,
+                            Role = dto.Role
+                        });
+                    }
+                }
+
+                // 5. ClassSections
+                var existingClasses = db.ClassSections.ToDictionary(c => c.Id);
+                foreach (var dto in state.Classes)
+                {
+                    if (existingClasses.TryGetValue(dto.Id, out var ent))
+                    {
+                        ent.Name = dto.Name;
+                        ent.Department = dto.Department;
+                        ent.LecturerId = dto.LecturerId;
+                        ent.LecturerName = dto.LecturerName;
+                        ent.MaxCapacity = dto.MaxCapacity;
+                        ent.Status = dto.Status;
+                    }
+                    else
+                    {
+                        db.ClassSections.Add(new ClassSection
+                        {
+                            Id = dto.Id,
+                            Name = dto.Name,
+                            Department = dto.Department,
+                            LecturerId = dto.LecturerId,
+                            LecturerName = dto.LecturerName,
+                            MaxCapacity = dto.MaxCapacity,
+                            Status = dto.Status
+                        });
+                    }
+                }
+
+                // Đảm bảo mỗi sinh viên đều có bản ghi StudentProfile giữ ClassId & Major
                 foreach (var st in state.Students)
                 {
-                    UpsertSqlEntity(db, "Students", "Id", st.Id, new()
+                    if (!state.Profiles.Any(p => p.Email.Equals(st.Email, StringComparison.OrdinalIgnoreCase)))
                     {
-                        ["FullName"] = st.FullName,
-                        ["Email"] = st.Email,
-                        ["DateOfBirth"] = st.DateOfBirth,
-                        ["Gpa"] = st.Gpa,
-                        ["GPA"] = st.Gpa,
-                        ["Major"] = st.Major,
-                        ["ClassId"] = st.ClassId
-                    });
+                        state.Profiles.Add(new StudentProfileDto
+                        {
+                            Email = st.Email,
+                            StudentId = st.Id,
+                            FullName = st.FullName,
+                            Major = $"{st.Major} • Class {st.ClassId}"
+                        });
+                    }
                 }
 
-                foreach (var t in state.Teachers)
+                var existingProfiles = db.StudentProfiles.ToDictionary(p => p.Email, StringComparer.OrdinalIgnoreCase);
+                foreach (var dto in state.Profiles)
                 {
-                    UpsertSqlEntity(db, "Teachers", "Id", t.Id, new()
+                    if (string.IsNullOrWhiteSpace(dto.Email)) continue;
+                    if (existingProfiles.TryGetValue(dto.Email, out var ent))
                     {
-                        ["FullName"] = t.FullName,
-                        ["Email"] = t.Email,
-                        ["Department"] = t.Department,
-                        ["Phone"] = t.Phone
-                    });
+                        ent.StudentId = dto.StudentId;
+                        ent.FullName = dto.FullName;
+                        ent.Phone = dto.Phone;
+                        ent.Major = dto.Major;
+                        if (!string.IsNullOrEmpty(dto.AvatarBase64))
+                            ent.AvatarBase64 = dto.AvatarBase64;
+                    }
+                    else
+                    {
+                        db.StudentProfiles.Add(new StudentProfile
+                        {
+                            Email = dto.Email,
+                            StudentId = dto.StudentId,
+                            FullName = dto.FullName,
+                            Phone = dto.Phone,
+                            Major = dto.Major,
+                            AvatarBase64 = dto.AvatarBase64
+                        });
+                    }
                 }
 
-                foreach (var c in state.Courses)
+                // 6. TuitionInvoices
+                var existingInvoices = db.TuitionInvoices.ToDictionary(i => i.Id);
+                foreach (var dto in state.Invoices)
                 {
-                    UpsertSqlEntity(db, "Courses", "Id", c.Id, new()
+                    var recJson = JsonSerializer.Serialize(dto.RecipientEmails);
+                    if (existingInvoices.TryGetValue(dto.Id, out var ent))
                     {
-                        ["Name"] = c.Name,
-                        ["Credits"] = c.Credits,
-                        ["Department"] = c.Department
-                    });
+                        ent.StudentEmail = dto.StudentEmail;
+                        ent.Semester = dto.Semester;
+                        ent.Credits = dto.Credits;
+                        ent.AmountVnd = dto.AmountVnd;
+                        ent.Note = dto.Note;
+                        ent.BankCode = dto.BankCode;
+                        ent.AccountNo = dto.AccountNo;
+                        ent.AccountName = dto.AccountName;
+                        ent.Paid = dto.Paid;
+                        ent.CreatedAt = dto.CreatedAt;
+                        ent.RecipientEmailsJson = recJson;
+                    }
+                    else
+                    {
+                        db.TuitionInvoices.Add(new TuitionInvoice
+                        {
+                            Id = dto.Id,
+                            StudentEmail = dto.StudentEmail,
+                            Semester = dto.Semester,
+                            Credits = dto.Credits,
+                            AmountVnd = dto.AmountVnd,
+                            Note = dto.Note,
+                            BankCode = dto.BankCode,
+                            AccountNo = dto.AccountNo,
+                            AccountName = dto.AccountName,
+                            Paid = dto.Paid,
+                            CreatedAt = dto.CreatedAt,
+                            RecipientEmailsJson = recJson
+                        });
+                    }
                 }
 
-                foreach (var acc in state.Accounts)
+                // 7. Announcements
+                var existingAnnouncements = db.Announcements.ToDictionary(a => a.Id);
+                foreach (var dto in state.Announcements)
                 {
-                    UpsertSqlEntity(db, "UserAccounts", "Email", acc.Email, new()
+                    var clsJson = JsonSerializer.Serialize(dto.TargetClassIds);
+                    if (existingAnnouncements.TryGetValue(dto.Id, out var ent))
                     {
-                        ["PasswordHash"] = acc.PasswordHash,
-                        ["FullName"] = acc.FullName,
-                        ["Role"] = acc.Role
-                    });
+                        ent.Category = dto.Category;
+                        ent.TargetGroup = dto.TargetGroup;
+                        ent.TargetClassIdsJson = clsJson;
+                        ent.Title = dto.Title;
+                        ent.Message = dto.Message;
+                        ent.InvoiceId = dto.InvoiceId;
+                        ent.AmountVnd = dto.AmountVnd;
+                        ent.CreatedAt = dto.CreatedAt;
+                    }
+                    else
+                    {
+                        db.Announcements.Add(new Announcement
+                        {
+                            Id = dto.Id,
+                            Category = dto.Category,
+                            TargetGroup = dto.TargetGroup,
+                            TargetClassIdsJson = clsJson,
+                            Title = dto.Title,
+                            Message = dto.Message,
+                            InvoiceId = dto.InvoiceId,
+                            AmountVnd = dto.AmountVnd,
+                            CreatedAt = dto.CreatedAt
+                        });
+                    }
+                }
+
+                // 8. SupportTickets
+                var existingTickets = db.SupportTickets.ToDictionary(t => t.Id);
+                foreach (var dto in state.Tickets)
+                {
+                    if (existingTickets.TryGetValue(dto.Id, out var ent))
+                    {
+                        ent.Status = dto.Status;
+                        ent.AdminReply = dto.AdminReply;
+                        ent.UpdatedAt = dto.UpdatedAt;
+                    }
+                    else
+                    {
+                        db.SupportTickets.Add(new SupportTicket
+                        {
+                            Id = dto.Id,
+                            StudentId = dto.StudentId,
+                            StudentName = dto.StudentName,
+                            StudentEmail = dto.StudentEmail,
+                            Category = dto.Category,
+                            Subject = dto.Subject,
+                            Description = dto.Description,
+                            Status = dto.Status,
+                            AdminReply = dto.AdminReply,
+                            CreatedAt = dto.CreatedAt,
+                            UpdatedAt = dto.UpdatedAt
+                        });
+                    }
+                }
+
+                // 9. PortalAssignments
+                var existingAssignments = db.PortalAssignments.ToDictionary(a => a.Id);
+                foreach (var dto in state.Assignments)
+                {
+                    var subJson = JsonSerializer.Serialize(dto.Submissions);
+                    if (existingAssignments.TryGetValue(dto.Id, out var ent))
+                    {
+                        ent.ClassId = dto.ClassId;
+                        ent.CourseName = dto.CourseName;
+                        ent.LecturerName = dto.LecturerName;
+                        ent.Title = dto.Title;
+                        ent.Description = dto.Description;
+                        ent.DueDate = dto.DueDate;
+                        ent.CreatedAt = dto.CreatedAt;
+                        ent.SubmissionsJson = subJson;
+                    }
+                    else
+                    {
+                        db.PortalAssignments.Add(new PortalAssignment
+                        {
+                            Id = dto.Id,
+                            ClassId = dto.ClassId,
+                            CourseName = dto.CourseName,
+                            LecturerName = dto.LecturerName,
+                            Title = dto.Title,
+                            Description = dto.Description,
+                            DueDate = dto.DueDate,
+                            CreatedAt = dto.CreatedAt,
+                            SubmissionsJson = subJson
+                        });
+                    }
+                }
+
+                // 10. AttendanceSummaries
+                var existingAttendance = db.AttendanceSummaries.ToList();
+                foreach (var dto in state.AttendanceRecords)
+                {
+                    var ent = existingAttendance.FirstOrDefault(x => x.StudentId == dto.StudentId && x.ClassId == dto.ClassId);
+                    if (ent != null)
+                    {
+                        ent.StudentName = dto.StudentName;
+                        ent.TotalSessions = dto.TotalSessions;
+                        ent.AttendedSessions = dto.AttendedSessions;
+                        ent.AbsentSessions = dto.AbsentSessions;
+                        ent.UpdatedBy = dto.UpdatedBy;
+                        ent.UpdatedAt = dto.UpdatedAt;
+                    }
+                    else
+                    {
+                        db.AttendanceSummaries.Add(new AttendanceSummary
+                        {
+                            StudentId = dto.StudentId,
+                            StudentName = dto.StudentName,
+                            ClassId = dto.ClassId,
+                            TotalSessions = dto.TotalSessions,
+                            AttendedSessions = dto.AttendedSessions,
+                            AbsentSessions = dto.AbsentSessions,
+                            UpdatedBy = dto.UpdatedBy,
+                            UpdatedAt = dto.UpdatedAt
+                        });
+                    }
+                }
+
+                // 11. ScholarshipAwards
+                var existingScholarships = db.ScholarshipAwards.ToDictionary(s => s.StudentId);
+                var incomingScholarshipIds = state.Scholarships.Select(s => s.StudentId).ToHashSet();
+                foreach (var removed in existingScholarships.Values.Where(s => !incomingScholarshipIds.Contains(s.StudentId)).ToList())
+                    db.ScholarshipAwards.Remove(removed);
+
+                foreach (var dto in state.Scholarships)
+                {
+                    if (existingScholarships.TryGetValue(dto.StudentId, out var ent))
+                    {
+                        ent.StudentName = dto.StudentName;
+                        ent.Major = dto.Major;
+                        ent.ClassId = dto.ClassId;
+                        ent.Gpa = dto.Gpa;
+                        ent.Tier = dto.Tier;
+                        ent.WaiverAmountVnd = dto.WaiverAmountVnd;
+                        ent.AwardedAt = dto.AwardedAt;
+                    }
+                    else
+                    {
+                        db.ScholarshipAwards.Add(new ScholarshipAward
+                        {
+                            StudentId = dto.StudentId,
+                            StudentName = dto.StudentName,
+                            Major = dto.Major,
+                            ClassId = dto.ClassId,
+                            Gpa = dto.Gpa,
+                            Tier = dto.Tier,
+                            WaiverAmountVnd = dto.WaiverAmountVnd,
+                            AwardedAt = dto.AwardedAt
+                        });
+                    }
+                }
+
+                // 12. CampusEvents
+                var existingEvents = db.CampusEvents.ToDictionary(e => e.Id);
+                foreach (var dto in state.Events)
+                {
+                    var attJson = JsonSerializer.Serialize(dto.Attendees);
+                    if (existingEvents.TryGetValue(dto.Id, out var ent))
+                    {
+                        ent.Title = dto.Title;
+                        ent.Organizer = dto.Organizer;
+                        ent.EventDate = dto.EventDate;
+                        ent.Venue = dto.Venue;
+                        ent.ConductPoints = dto.ConductPoints;
+                        ent.Status = dto.Status;
+                        ent.AttendeesJson = attJson;
+                    }
+                    else
+                    {
+                        db.CampusEvents.Add(new CampusEvent
+                        {
+                            Id = dto.Id,
+                            Title = dto.Title,
+                            Organizer = dto.Organizer,
+                            EventDate = dto.EventDate,
+                            Venue = dto.Venue,
+                            ConductPoints = dto.ConductPoints,
+                            Status = dto.Status,
+                            AttendeesJson = attJson
+                        });
+                    }
+                }
+
+                // 13. AuditLogs
+                var existingLogs = db.AuditLogs.ToDictionary(l => l.Id);
+                foreach (var dto in state.AuditLogs)
+                {
+                    if (!existingLogs.ContainsKey(dto.Id))
+                    {
+                        db.AuditLogs.Add(new AuditLog
+                        {
+                            Id = dto.Id,
+                            Actor = dto.Actor,
+                            Action = dto.Action,
+                            Target = dto.Target,
+                            Detail = dto.Detail,
+                            Timestamp = dto.Timestamp
+                        });
+                    }
                 }
 
                 db.SaveChanges();
             }
-            catch { }
         }
 
         private async Task<int> DispatchEmailsAsync(IEnumerable<string> emails, string subject, string htmlBody)
@@ -775,12 +1271,11 @@ namespace StudentManagement.API.Controllers
 
             WriteAuditLog(state, dto.Email.Trim(), "ACCOUNT_REGISTER", assignedCode, $"Registered new {dto.Role} account ({dto.FullName.Trim()}).");
             SaveState(state);
-            SyncAllToSqlServer(state);
 
             await DispatchEmailsAsync(
                 new[] { dto.Email.Trim() },
                 "[Unit University] Welcome to SIMS Portal",
-                $"<h3>Welcome, {dto.FullName}!</h3><p>Your account (<strong>{assignedCode}</strong> - {dto.Role}) has been created and saved to the database.</p>"
+                $"<h3>Welcome, {dto.FullName}!</h3><p>Your account (<strong>{assignedCode}</strong> - {dto.Role}) has been created and saved to PostgreSQL.</p>"
             );
 
             return Ok(new { message = "Account registered successfully!", email = dto.Email.Trim(), role = dto.Role, userCode = assignedCode });
@@ -850,10 +1345,9 @@ namespace StudentManagement.API.Controllers
         public IActionResult ForceSyncDatabase()
         {
             var state = LoadState();
-            SyncAllToSqlServer(state);
-            WriteAuditLog(state, "System Administrator", "DB_SYNC", "StudentManagementDb", $"Synchronized {state.Students.Count} students and {state.Teachers.Count} lecturers to SQL Server.");
+            WriteAuditLog(state, "System Administrator", "DB_SYNC", "PostgreSQL", $"Synchronized {state.Students.Count} students and {state.Teachers.Count} lecturers to PostgreSQL.");
             SaveState(state);
-            return Ok(new { message = "Synced all records to SQL Server StudentManagementDb!", students = state.Students.Count, teachers = state.Teachers.Count });
+            return Ok(new { message = "Synced all records to PostgreSQL!", students = state.Students.Count, teachers = state.Teachers.Count });
         }
 
         [HttpPost("students")]
@@ -871,7 +1365,6 @@ namespace StudentManagement.API.Controllers
             state.Students.Insert(0, dto);
             WriteAuditLog(state, "System Administrator", "STUDENT_CREATE", dto.Id, $"Added student {dto.FullName} to class {dto.ClassId} ({dto.Major}).");
             SaveState(state);
-            SyncAllToSqlServer(state);
             return Ok(dto);
         }
 
@@ -908,7 +1401,6 @@ namespace StudentManagement.API.Controllers
 
             WriteAuditLog(state, "System Administrator", "STUDENT_UPDATE", id, $"Updated {st.FullName}: Class {oldClass} -> {dto.ClassId}, GPA {oldGpa:F2} -> {dto.Gpa:F2}.");
             SaveState(state);
-            SyncAllToSqlServer(state);
             return Ok(st);
         }
 
@@ -920,8 +1412,6 @@ namespace StudentManagement.API.Controllers
             state.Students.RemoveAll(s => s.Id == id);
             WriteAuditLog(state, "System Administrator", "STUDENT_DELETE", id, $"Removed student record ({target?.FullName ?? id}).");
             SaveState(state);
-            var db = ResolveAppDbContext();
-            if (db != null) DeleteSqlEntity(db, "Students", "Id", id);
             return Ok();
         }
 
@@ -934,7 +1424,6 @@ namespace StudentManagement.API.Controllers
             state.Teachers.Insert(0, dto);
             WriteAuditLog(state, "System Administrator", "LECTURER_CREATE", dto.Id, $"Added specialized lecturer {dto.FullName} ({dto.Department}).");
             SaveState(state);
-            SyncAllToSqlServer(state);
             return Ok(dto);
         }
 
@@ -950,7 +1439,6 @@ namespace StudentManagement.API.Controllers
             t.Phone = dto.Phone;
             WriteAuditLog(state, "System Administrator", "LECTURER_UPDATE", id, $"Updated lecturer {dto.FullName} ({dto.Department}).");
             SaveState(state);
-            SyncAllToSqlServer(state);
             return Ok(t);
         }
 
@@ -961,8 +1449,6 @@ namespace StudentManagement.API.Controllers
             state.Teachers.RemoveAll(x => x.Id == id);
             WriteAuditLog(state, "System Administrator", "LECTURER_DELETE", id, $"Removed lecturer {id}.");
             SaveState(state);
-            var db = ResolveAppDbContext();
-            if (db != null) DeleteSqlEntity(db, "Teachers", "Id", id);
             return Ok();
         }
 
