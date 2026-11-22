@@ -542,6 +542,9 @@ namespace StudentManagement.API.Controllers
 
                 var classMap = db.ClassSections.AsNoTracking().ToDictionary(c => c.Id, c => c.Department, StringComparer.OrdinalIgnoreCase);
 
+                var profileByEmailEarly = db.StudentProfiles.AsNoTracking()
+    .ToDictionary(p => p.Email, p => p.Major, StringComparer.OrdinalIgnoreCase);
+
                 var state = new PortalState
                 {
                     Students = db.Students.AsNoTracking().Select(s => new StudentRecordDto
@@ -549,7 +552,7 @@ namespace StudentManagement.API.Controllers
                         Id = s.Id,
                         FullName = s.FullName,
                         Email = s.Email,
-                        Major = classMap.TryGetValue(s.Id, out var m) ? m : "Information Technology",
+                        Major = "Information Technology",
                         ClassId = "IT-K26A1",
                         DateOfBirth = s.DateOfBirth.ToString("yyyy-MM-dd"),
                         Gpa = s.Gpa,
