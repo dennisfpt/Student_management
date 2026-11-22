@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using StudentManagement.Application.Interfaces;
 using StudentManagement.Application.Policies;
 using StudentManagement.Application.Services;
@@ -10,9 +11,57 @@ using StudentManagement.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Cấu hình DbContext SQL Server
+var rawConnStr = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
+
+static bool IsPostgresConnectionString(string value)
+{
+    if (string.IsNullOrWhiteSpace(value)) return false;
+    return value.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
+        || value.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase)
+        || value.Contains("Host=", StringComparison.OrdinalIgnoreCase)
+        || value.Contains("Server=", StringComparison.OrdinalIgnoreCase) && value.Contains("Port=", StringComparison.OrdinalIgnoreCase);
+}
+
+static string NormalizePostgresConnectionString(string value)
+{
+    if (!value.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) &&
+        !value.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+    {
+        return value;
+    }
+
+    var uri = new Uri(value);
+    var userInfo = uri.UserInfo.Split(':', 2);
+    var username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
+    var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+    var database = uri.AbsolutePath.TrimStart('/');
+    var port = uri.Port > 0 ? uri.Port : 5432;
+
+    var npgsqlBuilder = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = port,
+        Database = database,
+        Username = username,
+        Password = password,
+        SslMode = SslMode.Prefer
+    };
+
+    return npgsqlBuilder.ConnectionString;
+}
+
+// 1. Cấu hình DbContext: dùng PostgreSQL khi có chuỗi kết nối Postgres, ngược lại dùng SQL Server
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    if (IsPostgresConnectionString(rawConnStr))
+    {
+        options.UseNpgsql(NormalizePostgresConnectionString(rawConnStr));
+    }
+    else
+    {
+        options.UseSqlServer(rawConnStr);
+    }
+});
 
 // 2. Đăng ký Dependency Injection cho Repositories, Policies & Services
 builder.Services.AddScoped<IStudentRepository, SqlStudentRepository>();
@@ -33,10 +82,11 @@ builder.Services.AddScoped<IEmailService, StudentManagement.Infrastructure.Servi
 
 var app = builder.Build();
 
-// 4. Tự động nạp dữ liệu mẫu (Seed Data) vào SQL Server khi khởi chạy
+// 4. Tự động tạo bảng (nếu chưa có) và nạp dữ liệu mẫu (Seed Data) khi khởi chạy
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await context.Database.EnsureCreatedAsync();
     await DbSeeder.SeedAsync(context);
 }
 
