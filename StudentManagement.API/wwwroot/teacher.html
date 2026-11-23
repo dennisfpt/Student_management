@@ -48,10 +48,81 @@
     <script src="js/teacher.js?v=2026"></script>
     <script>
                 if ('serviceWorker' in navigator) {
-                    window.addEventListener('load', () => {
-                        navigator.serviceWorker.register('/sw.js').catch(() => {});
+                    window.addEventListener('load', function () {
+                        navigator.serviceWorker.register('/sw.js').catch(function () {});
                     });
                 }
+    </script>
+    <script>
+                (function () {
+                    var BREAKPOINT = 1024;
+                    function initMobileSidebar() {
+                        var sidebar = document.querySelector('.sidebar');
+                        var topbar = document.querySelector('.topbar');
+                        if (!sidebar || !topbar) return;
+
+                        var backdrop = document.querySelector('.sidebar-backdrop');
+                        if (!backdrop) {
+                            backdrop = document.createElement('div');
+                            backdrop.className = 'sidebar-backdrop';
+                            document.body.appendChild(backdrop);
+                        }
+
+                        var btn = document.getElementById('btnMobileMenu');
+                        if (!btn) {
+                            var createdBtn = document.createElement('button');
+                            createdBtn.setAttribute('type', 'button');
+                            createdBtn.id = 'btnMobileMenu';
+                            createdBtn.className = 'btn-mobile-menu';
+                            createdBtn.setAttribute('aria-label', 'Open menu');
+                            createdBtn.innerHTML = '<i data-lucide="menu" style="width:20px;height:20px;"></i>';
+                            topbar.insertBefore(createdBtn, topbar.firstChild);
+                            btn = createdBtn;
+
+                            var lucideObj = typeof Reflect !== 'undefined' ? Reflect.get(window, 'lucide') : null;
+                            if (lucideObj && typeof lucideObj.createIcons === 'function') {
+                                lucideObj.createIcons();
+                            }
+                        }
+
+                        function closeMenu() {
+                            if (!sidebar || !backdrop) return;
+                            sidebar.classList.remove('mobile-open');
+                            backdrop.classList.remove('open');
+                        }
+
+                        function toggleMenu() {
+                            if (!sidebar || !backdrop) return;
+                            var ev = typeof Reflect !== 'undefined' ? Reflect.get(window, 'event') : null;
+                            if (ev && typeof ev.stopPropagation === 'function') {
+                                ev.stopPropagation();
+                            }
+                            var isOpen = sidebar.classList.toggle('mobile-open');
+                            backdrop.classList.toggle('open', isOpen);
+                        }
+
+                        btn.addEventListener('click', toggleMenu);
+                        backdrop.addEventListener('click', closeMenu);
+
+                        sidebar.addEventListener('click', function () {
+                            var ev = typeof Reflect !== 'undefined' ? Reflect.get(window, 'event') : null;
+                            var target = ev ? ev.target : null;
+                            if (target && target instanceof Element && target.closest('.menu-item, a, button') && window.innerWidth <= BREAKPOINT) {
+                                closeMenu();
+                            }
+                        });
+
+                        window.addEventListener('resize', function () {
+                            if (window.innerWidth > BREAKPOINT) closeMenu();
+                        });
+                    }
+
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', initMobileSidebar);
+                    } else {
+                        initMobileSidebar();
+                    }
+                })();
     </script>
 </body>
 </html>
