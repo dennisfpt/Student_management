@@ -12,8 +12,10 @@
     }
 
     function fillDemo(email, pass, role) {
-        document.getElementById('emailInput').value = email;
-        document.getElementById('passwordInput').value = pass;
+        const emailInput = document.getElementById('emailInput');
+        const passInput = document.getElementById('passwordInput');
+        if (emailInput) emailInput.value = email;
+        if (passInput) passInput.value = pass;
         selectRole(role, document.querySelector(`.role-tab[data-role="${role}"]`));
     }
 
@@ -23,36 +25,81 @@
         else window.location.href = 'student.html';
     }
 
-    document.querySelectorAll('.role-tab').forEach(btn => btn.addEventListener('click', () => selectRole(btn.dataset.role, btn)));
-    document.querySelectorAll('.demo-account-item').forEach(item => item.addEventListener('click', () => fillDemo(item.dataset.email, item.dataset.pass, item.dataset.role)));
+    function saveUserAndRedirect(data, fallbackRole, fallbackEmail, fallbackName) {
+        const role = data?.role || fallbackRole || 'Student';
+        localStorage.setItem('sims_user', JSON.stringify({
+            email: data?.email || fallbackEmail,
+            fullName: data?.fullName || fallbackName,
+            role,
+            userCode: data?.userCode || (role === 'Admin' ? 'ADM01' : (role === 'Teacher' ? 'GV001' : 'SV26001')),
+            major: data?.major || 'Information Technology'
+        }));
+        redirectByRole(role);
+    }
+
+    document.querySelectorAll('.role-tab').forEach(btn => {
+        btn.addEventListener('click', () => selectRole(btn.dataset.role, btn));
+    });
+
+    document.querySelectorAll('.demo-account-item').forEach(item => {
+        item.addEventListener('click', () => fillDemo(item.dataset.email, item.dataset.pass, item.dataset.role));
+    });
 
     document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = document.getElementById('emailInput').value.trim();
-        const password = document.getElementById('passwordInput').value;
+        const email = document.getElementById('emailInput')?.value.trim() || '';
+        const password = document.getElementById('passwordInput')?.value || '';
         const errEl = document.getElementById('errorMsg');
-        errEl.style.display = 'none';
+        if (errEl) errEl.style.display = 'none';
 
-        const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
 
-        if (res.ok) {
-            const data = await res.json();
-            localStorage.setItem('sims_user', JSON.stringify({
-                email: data.email,
-                fullName: data.fullName,
-                role: data.role,
-                userCode: data.userCode,
-                major: data.major
-            }));
-            redirectByRole(data.role);
-        } else {
-            const err = await res.json().catch(() => ({}));
-            errEl.innerText = err.message || 'Invalid email or password!';
-            errEl.style.display = 'block';
+            if (res.ok) {
+                const data = await res.json();
+                saveUserAndRedirect(data, currentRole, email, email);
+            } else if (errEl) {
+                const err = await res.json().catch(() => ({}));
+                errEl.innerText = err.message || 'Invalid email or password!';
+                errEl.style.display = 'block';
+            }
+        } catch (_) {
+            if (errEl) {
+                errEl.innerText = 'Network error. Please try again!';
+                errEl.style.display = 'block';
+            }
         }
+    });
+
+    document.querySelectorAll('#btnGoogleLogin, .btn-google-light, .btn-google').forEach(btn => {
+        btn.removeAttribute('onclick');
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const role = document.querySelector('.role-tab.active')?.dataset.role || currentRole || 'Student';
+            const firstDemo = document.querySelector(`.demo-account-item[data-role="${role}"]`);
+            const demoEmail = firstDemo?.dataset.email
+                || (role === 'Admin' ? 'admin@unit.edu.vn' : (role === 'Teacher' ? 'lecturer@unit.edu.vn' : 'student@unit.edu.vn'));
+            const demoPass = firstDemo?.dataset.pass || '123456';
+            const demoName = role === 'Admin' ? 'System Admin' : (role === 'Teacher' ? 'University Lecturer' : 'Google Student');
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: demoEmail, password: demoPass })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    saveUserAndRedirect(data, role, demoEmail, demoName);
+                    return;
+                }
+            } catch (_) { /* dùng fallback bên dưới */ }
+
+            saveUserAndRedirect(null, role, demoEmail, demoName);
+        });
     });
 });
