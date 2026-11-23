@@ -24,8 +24,11 @@ const ADMIN_MENUS = [
 let activeTab = 'overview';
 let filterMajor = 'ALL';
 let filterClass = 'ALL';
+let filterAttMajor = 'ALL';
+let filterAttStatus = 'ALL';
 let studentPage = 1;
 const STUDENTS_PER_PAGE = 25;
+const approvedExamIds = new Set();
 
 function renderSidebar() {
     const sidebar = document.getElementById('sidebarMenu');
@@ -305,27 +308,308 @@ function renderContent() {
         c.innerHTML = `<div class="page-header"><h1>Academic Grades</h1></div><div class="card-box"><table><thead><tr><th>Student ID</th><th>Subject</th><th>Midterm</th><th>Final</th><th>GPA</th><th>Result</th></tr></thead><tbody>${cache.grades.map(g => `<tr><td><strong>${g.studentId}</strong></td><td>${g.courseId}</td><td>${g.midtermScore}</td><td>${g.finalScore}</td><td>${g.gpa}</td><td><span class="status-pill">${g.status}</span></td></tr>`).join('')}</tbody></table></div>`;
 
     } else if (activeTab === 'attendance') {
-        const attList = dynamicState.attendanceRecords || [];
-        const bannedList = attList.filter(r => r.totalSessions > 0 && (r.attendedSessions / r.totalSessions) < 0.8);
+        const rawRecords = dynamicState.attendanceRecords || [];
+        const records = rawRecords.length > 0
+            ? rawRecords.map(r => {
+                const stu = cache.students.find(s => s.id === r.studentId);
+                const total = r.totalSessions || 15;
+                const attended = r.attendedSessions ?? total;
+                const rate = total > 0 ? (attended / total) : 1;
+                const isApproved = approvedExamIds.has(r.studentId);
+                const examStatus = isApproved ? 'Eligible' : (rate < 0.8 ? 'Banned' : (rate < 0.87 ? 'Pending' : 'Eligible'));
+                return {
+                    studentId: r.studentId,
+                    studentName: r.studentName || stu?.fullName || r.studentId,
+                    studentEmail: stu?.email || '',
+                    major: stu?.major || 'Information Technology',
+                    classId: r.classId || stu?.classId || 'N/A',
+                    moduleName: r.courseName || r.courseId || 'Core Module',
+                    attendedSessions: attended,
+                    totalSessions: total,
+                    absentSessions: r.absentSessions ?? Math.max(0, total - attended),
+                    ratePct: Math.round(rate * 100),
+                    examStatus
+                };
+            })
+            : cache.students.slice(0, 12).map((s, idx) => {
+                const total = 15;
+                const attended = idx === 2 ? 11 : (idx === 1 ? 13 : 15);
+                const rate = attended / total;
+                const isApproved = approvedExamIds.has(s.id);
+                const examStatus = isApproved ? 'Eligible' : (rate < 0.8 ? 'Banned' : (rate < 0.87 ? 'Pending' : 'Eligible'));
+                return {
+                    studentId: s.id,
+                    studentName: s.fullName,
+                    studentEmail: s.email,
+                    major: s.major,
+                    classId: s.classId,
+                    moduleName: s.major === 'Marketing' ? 'Digital Marketing' : (s.major === 'Graphic Design' ? 'UI/UX Fundamentals' : 'Web Architecture'),
+                    attendedSessions: attended,
+                    totalSessions: total,
+                    absentSessions: total - attended,
+                    ratePct: Math.round(rate * 100),
+                    examStatus
+                };
+            });
+
+        const avgRate = records.length
+            ? Math.round(records.reduce((sum, r) => sum + r.ratePct, 0) / records.length)
+            : 95;
+        const absentRate = Math.max(0, 100 - avgRate);
+        const eligibleCount = records.filter(r => r.examStatus === 'Eligible').length;
+        const pendingCount = records.filter(r => r.examStatus === 'Pending').length;
+        const bannedCount = records.filter(r => r.examStatus === 'Banned').length;
+
+        const filteredRecords = records.filter(r =>
+            (filterAttMajor === 'ALL' || r.major === filterAttMajor) &&
+            (filterAttStatus === 'ALL' || r.examStatus === filterAttStatus)
+        );
+
         c.innerHTML = `
-            <div class="page-header">
-                <div><h1>Attendance &amp; Exam Eligibility Monitor</h1><p style="color:var(--text-muted)">Students below 80% attendance are automatically flagged as Banned from Final Exams</p></div>
+            <div class="att-header-bar">
+                <div class="att-title-group">
+                    <h1>Attendance &amp; Final Exam Eligibility</h1>
+                    <p>Monitor attendance rates, review absences, and approve final exam eligibility</p>
+                </div>
+                <div class="att-meta-pills">
+                    <div class="att-pill-box"><span>Academic Year</span><strong>2025 - 2026</strong></div>
+                    <div class="att-pill-box"><span>Semester</span><strong>Fall Semester</strong></div>
+                </div>
             </div>
-            <div class="charts-grid">
-                <div class="card-box"><h3>Overall Attendance Rate</h3><canvas id="attDoughnut" height="160"></canvas></div>
-                <div class="card-box">
-                    <h3><i data-lucide="alert-triangle" style="width:17px;height:17px;color:#fb7185;"></i> Exam Ineligibility Watchlist (${bannedList.length} Banned)</h3>
-                    ${bannedList.length === 0 ? '<p style="color:var(--text-muted); font-size:13px;">No students currently banned. Lecturers can sync class attendance in Teacher Portal.</p>' : `
+
+            <div class="kpi-grid">
+                <div class="kpi-card kpi-blue">
+                    <div class="kpi-top"><div class="kpi-icon"><i data-lucide="percent"></i></div><div><div class="kpi-value">${avgRate}%</div><div class="kpi-label">Overall Attendance Rate</div></div></div>
+                    <div class="kpi-footer"><span class="kpi-trend-up">Present ${avgRate}%</span>${sparklineSvg('#38bdf8')}</div>
+                </div>
+                <div class="kpi-card kpi-emerald">
+                    <div class="kpi-top"><div class="kpi-icon"><i data-lucide="check-circle-2"></i></div><div><div class="kpi-value">${eligibleCount}</div><div class="kpi-label">Eligible for Final Exam</div></div></div>
+                    <div class="kpi-footer"><span class="kpi-trend-up">≥80% Attendance</span>${sparklineSvg('#34d399')}</div>
+                </div>
+                <div class="kpi-card kpi-amber">
+                    <div class="kpi-top"><div class="kpi-icon"><i data-lucide="clock-alert"></i></div><div><div class="kpi-value">${pendingCount}</div><div class="kpi-label">Pending Verification</div></div></div>
+                    <div class="kpi-footer"><span style="color:#fbbf24;">Review Sessions</span>${sparklineSvg('#fbbf24')}</div>
+                </div>
+                <div class="kpi-card kpi-purple">
+                    <div class="kpi-top"><div class="kpi-icon"><i data-lucide="alert-triangle"></i></div><div><div class="kpi-value">${bannedCount}</div><div class="kpi-label">Exam Banned (&lt;80%)</div></div></div>
+                    <div class="kpi-footer"><span style="color:#f87171;">Send Alert Email</span>${sparklineSvg('#c084fc')}</div>
+                </div>
+            </div>
+
+            <div class="att-top-grid">
+                <div class="card-box" style="margin-bottom:0;">
+                    <h3><i data-lucide="activity" style="width:16px;height:16px;color:#38bdf8;"></i> Overall Attendance Rate (${avgRate}%)</h3>
+                    <div class="att-donut-layout">
+                        <div class="att-donut-wrap">
+                            <canvas id="admAttDonutCanvas"></canvas>
+                            <div class="att-donut-center">
+                                <div class="att-donut-percent">${avgRate}%</div>
+                                <div class="att-donut-sub">Attendance Rate</div>
+                            </div>
+                        </div>
+                        <div class="att-legend-list">
+                            <div class="att-legend-item">
+                                <div style="display:flex;align-items:flex-start;gap:8px;">
+                                    <span class="att-legend-dot" style="background:#38bdf8;"></span>
+                                    <div>
+                                        <div style="font-size:13px;font-weight:700;">Present</div>
+                                        <div style="font-size:12px;color:#94a3b8;">Checked-in sessions</div>
+                                    </div>
+                                </div>
+                                <strong style="font-size:18px;color:#38bdf8;">${avgRate}%</strong>
+                            </div>
+                            <div class="att-legend-item">
+                                <div style="display:flex;align-items:flex-start;gap:8px;">
+                                    <span class="att-legend-dot" style="background:#a855f7;"></span>
+                                    <div>
+                                        <div style="font-size:13px;font-weight:700;">Absent</div>
+                                        <div style="font-size:12px;color:#94a3b8;">Missed sessions</div>
+                                    </div>
+                                </div>
+                                <strong style="font-size:18px;color:#c084fc;">${absentRate}%</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="att-note-banner ${bannedCount > 0 ? 'warning' : ''}">
+                        <div>
+                            <strong>${bannedCount === 0 ? 'All tracked students are meeting the attendance requirement!' : `${bannedCount} student(s) currently below 80% attendance threshold.`}</strong>
+                            <div style="font-size:12px;opacity:0.9;">Students with &lt;80% attendance are flagged from final exams unless approved.</div>
+                        </div>
+                        <i data-lucide="${bannedCount === 0 ? 'check-circle-2' : 'alert-circle'}" style="width:18px;height:18px;flex-shrink:0;"></i>
+                    </div>
+                </div>
+
+                <div class="card-box" style="margin-bottom:0;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+                        <h3 style="margin-bottom:0;"><i data-lucide="calendar-check" style="width:16px;height:16px;color:#38bdf8;"></i> Session Breakdown &amp; Exam Status</h3>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <select id="selAttMajor" class="filter-select">
+                                <option value="ALL" ${filterAttMajor === 'ALL' ? 'selected' : ''}>All Majors</option>
+                                <option value="Information Technology" ${filterAttMajor === 'Information Technology' ? 'selected' : ''}>Information Technology</option>
+                                <option value="Marketing" ${filterAttMajor === 'Marketing' ? 'selected' : ''}>Marketing</option>
+                                <option value="Graphic Design" ${filterAttMajor === 'Graphic Design' ? 'selected' : ''}>Graphic Design</option>
+                            </select>
+                            <select id="selAttStatus" class="filter-select">
+                                <option value="ALL" ${filterAttStatus === 'ALL' ? 'selected' : ''}>All Status</option>
+                                <option value="Eligible" ${filterAttStatus === 'Eligible' ? 'selected' : ''}>Eligible</option>
+                                <option value="Pending" ${filterAttStatus === 'Pending' ? 'selected' : ''}>Pending</option>
+                                <option value="Banned" ${filterAttStatus === 'Banned' ? 'selected' : ''}>Banned</option>
+                            </select>
+                        </div>
+                    </div>
                     <table>
-                        <thead><tr><th>Student ID</th><th>Name</th><th>Class</th><th>Absent</th><th>Status</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Module / Class</th>
+                                <th>Attended</th>
+                                <th>Absent</th>
+                                <th>Exam Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            ${bannedList.map(b => `<tr><td><strong>${b.studentId}</strong></td><td>${b.studentName}</td><td>${b.classId}</td><td>${b.absentSessions}/${b.totalSessions}</td><td><span class="status-pill pill-rose">Exam Banned</span></td></tr>`).join('')}
+                            ${filteredRecords.map(r => {
+            const badgeClass =
+                r.examStatus === 'Eligible' ? 'status-pill' :
+                    r.examStatus === 'Pending' ? 'status-pill pill-amber' :
+                        'status-pill pill-rose';
+            return `
+                                    <tr>
+                                        <td><strong>${r.studentName}</strong><br><small style="color:var(--text-muted)">${r.studentId}</small></td>
+                                        <td>${r.moduleName}<br><small style="color:var(--text-muted)">${r.classId}</small></td>
+                                        <td><strong>${r.attendedSessions} / ${r.totalSessions}</strong></td>
+                                        <td>${r.absentSessions}</td>
+                                        <td><span class="${badgeClass}">${r.examStatus}</span></td>
+                                        <td>
+                                            <button class="btn-sm btn-success" data-approve-exam="${r.studentId}">Approve</button>
+                                            <button class="btn-sm btn-edit" data-att-mail="${r.studentEmail}" data-att-name="${r.studentName}" data-att-mod="${r.moduleName}" data-att-pct="${r.ratePct}">Email</button>
+                                        </td>
+                                    </tr>`;
+        }).join('')}
                         </tbody>
-                    </table>`}
+                    </table>
+                </div>
+            </div>
+
+            <div class="att-bottom-grid">
+                <div class="card-box" style="margin-bottom:0;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                        <h3 style="margin-bottom:0;"><i data-lucide="trending-up" style="width:16px;height:16px;color:#38bdf8;"></i> Attendance Trend</h3>
+                        <div style="text-align:right;">
+                            <strong style="font-size:15px;color:#38bdf8;">${avgRate}%</strong>
+                            <div style="font-size:11.5px;color:#94a3b8;">Dec 2025</div>
+                        </div>
+                    </div>
+                    <div style="height:175px;"><canvas id="admAttTrendCanvas"></canvas></div>
+                </div>
+
+                <div class="card-box" style="margin-bottom:0;">
+                    <h3><i data-lucide="award" style="width:16px;height:16px;color:#38bdf8;"></i> Exam Eligibility Summary</h3>
+                    <div class="att-eligibility-card">
+                        <div class="att-eligibility-badge" ${bannedCount > 0 ? 'style="background:rgba(245,158,11,0.16);border-color:rgba(245,158,11,0.4);color:#fbbf24;"' : ''}>
+                            <i data-lucide="${bannedCount > 0 ? 'shield-alert' : 'check'}" style="width:24px;height:24px;"></i>
+                        </div>
+                        <div>
+                            <div style="font-size:16px;font-weight:800;color:${bannedCount > 0 ? '#fbbf24' : '#34d399'};margin-bottom:6px;">
+                                ${bannedCount === 0 ? 'Eligible for Final Exam' : `${eligibleCount} Eligible • ${bannedCount} At Risk / Banned`}
+                            </div>
+                            <p style="font-size:13px;color:#cbd5e1;line-height:1.5;">
+                                Use <strong>Approve</strong> to grant exam eligibility after reviewing excused absences, or <strong>Email</strong> to send attendance warnings directly to students.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>`;
+
+        document.getElementById('selAttMajor')?.addEventListener('change', (e) => {
+            filterAttMajor = e.target.value;
+            renderContent();
+        });
+        document.getElementById('selAttStatus')?.addEventListener('change', (e) => {
+            filterAttStatus = e.target.value;
+            renderContent();
+        });
+
+        c.querySelectorAll('[data-approve-exam]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                approvedExamIds.add(btn.dataset.approveExam);
+                renderContent();
+            });
+        });
+
+        c.querySelectorAll('[data-att-mail]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const email = btn.dataset.attMail;
+                const name = btn.dataset.attName;
+                const mod = btn.dataset.attMod;
+                const pct = btn.dataset.attPct;
+                openModal(`Attendance Notice • ${name}`, `
+                    <div class="form-group"><label>Recipient</label><input class="input-control" value="${email}" readonly></div>
+                    <div class="form-group"><label>Subject</label><input id="attMailSubj" class="input-control" value="Attendance & Exam Eligibility Update - ${mod}"></div>
+                    <div class="form-group"><label>Message</label><textarea id="attMailBody" rows="4" class="input-control">Dear ${name},\n\nYour current attendance rate for ${mod} is ${pct}%. Please contact Academic Affairs if you have supporting documentation for any absences.</textarea></div>
+                    <button class="btn-primary" id="btnSendAttAlert">Send Attendance Email</button>
+                `);
+                document.getElementById('btnSendAttAlert')?.addEventListener('click', async () => {
+                    const subject = document.getElementById('attMailSubj').value.trim();
+                    const message = document.getElementById('attMailBody').value.trim();
+                    if (!email || !subject || !message) return;
+                    const res = await fetch('/api/auth/send-student-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ toEmail: email, subject, message })
+                    });
+                    if (res.ok) {
+                        closeModal();
+                        alert(`Attendance email sent to ${email}!`);
+                    }
+                });
+            });
+        });
+
         if (typeof Chart !== 'undefined') {
-            new Chart(document.getElementById('attDoughnut'), { type: 'doughnut', data: { labels: ['Eligible (96%)', 'Exam Banned (4%)'], datasets: [{ data: [96, 4], backgroundColor: ['#38bdf8', '#f43f5e'] }] } });
+            new Chart(document.getElementById('admAttDonutCanvas'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Present', 'Absent'],
+                    datasets: [{
+                        data: [avgRate, absentRate],
+                        backgroundColor: ['#38bdf8', '#a855f7'],
+                        borderWidth: 0,
+                        cutout: '76%'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            new Chart(document.getElementById('admAttTrendCanvas'), {
+                type: 'line',
+                data: {
+                    labels: ['Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                    datasets: [{
+                        data: [89, 91, 93, 94, avgRate],
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.14)',
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#38bdf8'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { min: 25, max: 100, ticks: { callback: v => v + '%', color: '#94a3b8', stepSize: 25 }, grid: { color: 'rgba(148, 163, 184, 0.12)' } },
+                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+                    }
+                }
+            });
         }
 
     } else if (activeTab === 'scholarships') {

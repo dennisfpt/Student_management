@@ -310,36 +310,199 @@ function renderContent() {
             </div>`;
 
     } else if (activeTab === 'attendance') {
-        const attended = myAtt ? myAtt.attendedSessions : 14;
-        const absent = myAtt ? myAtt.absentSessions : 1;
-        const total = myAtt ? myAtt.totalSessions : 15;
+        const majorCourses = cache.courses.filter(cs => cs.department === myRec.major);
+        const defaultModules = majorCourses.length >= 4
+            ? majorCourses.slice(0, 4).map((cs, i) => {
+                const total = 15;
+                const absent = myAtt ? (i === 0 ? Math.min(total, myAtt.absentSessions || 0) : 0) : (i === 3 ? 2 : (i === 1 ? 1 : 0));
+                const attended = total - absent;
+                const rateMod = (attended / total) * 100;
+                const status = rateMod < 80 ? 'Banned' : (absent >= 2 ? 'Pending' : 'Eligible');
+                return { name: cs.name, attended, total, absent, status };
+            })
+            : [
+                { name: 'Computer Networks', attended: 15, total: 15, absent: 0, status: 'Eligible' },
+                { name: 'Database Systems', attended: 14, total: 15, absent: 1, status: 'Eligible' },
+                { name: 'Cybersecurity', attended: 15, total: 15, absent: 0, status: 'Eligible' },
+                { name: 'Web Development', attended: 13, total: 15, absent: 2, status: 'Pending' }
+            ];
+
+        const sumAttended = defaultModules.reduce((s, m) => s + m.attended, 0);
+        const sumTotal = defaultModules.reduce((s, m) => s + m.total, 0);
+        const sumAbsent = defaultModules.reduce((s, m) => s + m.absent, 0);
+        const displayRate = myAtt && myAtt.totalSessions > 0 ? attRate : Math.round((sumAttended / Math.max(1, sumTotal)) * 100);
+        const displayAbsentRate = Math.max(0, 100 - displayRate);
+        const displayPresentCount = myAtt ? myAtt.attendedSessions : sumAttended;
+        const displayAbsentCount = myAtt ? myAtt.absentSessions : sumAbsent;
+        const displayTotalCount = myAtt ? myAtt.totalSessions : sumTotal;
+        const isAllEligible = displayRate >= 80 && defaultModules.every(m => m.status !== 'Banned');
+
         c.innerHTML = `
-            <div class="page-header"><h1>My Attendance &amp; Final Exam Eligibility</h1></div>
-            ${!examEligible ? `
-            <div class="card-box" style="margin-bottom:16px; background:rgba(244,63,94,0.14); border:1px solid rgba(244,63,94,0.45);">
-                <strong style="color:#fb7185;">WARNING: Final Exam Eligibility Locked (${attRate}% Attendance)</strong>
-                <p style="font-size:13px; color:#fecdd3; margin-top:4px;">You have exceeded the maximum allowed absences (3/15 sessions). Please submit a request via Student Support.</p>
-            </div>` : ''}
-            <div class="charts-grid">
-                <div class="card-box"><h3>Overall Attendance Rate (${attRate}%)</h3><canvas id="stuAttDoughnut" height="160"></canvas></div>
-                <div class="card-box">
-                    <h3>Session Breakdown</h3>
+            <div class="att-header-bar">
+                <div class="att-title-group">
+                    <h1>My Attendance &amp; Final Exam Eligibility</h1>
+                    <p>Track your attendance and check your exam eligibility status</p>
+                </div>
+                <div class="att-meta-pills">
+                    <div class="att-pill-box"><span>Academic Year</span><strong>2025 - 2026</strong></div>
+                    <div class="att-pill-box"><span>Semester</span><strong>Fall Semester</strong></div>
+                </div>
+            </div>
+
+            <div class="att-top-grid">
+                <div class="card-box" style="margin-bottom:0;">
+                    <h3><i data-lucide="activity" style="width:16px;height:16px;color:#38bdf8;"></i> Overall Attendance Rate (${displayRate}%)</h3>
+                    <div class="att-donut-layout">
+                        <div class="att-donut-wrap">
+                            <canvas id="stuAttDoughnut"></canvas>
+                            <div class="att-donut-center">
+                                <div class="att-donut-percent">${displayRate}%</div>
+                                <div class="att-donut-sub">Attendance Rate</div>
+                            </div>
+                        </div>
+                        <div class="att-legend-list">
+                            <div class="att-legend-item">
+                                <div style="display:flex;align-items:flex-start;gap:8px;">
+                                    <span class="att-legend-dot" style="background:#38bdf8;"></span>
+                                    <div>
+                                        <div style="font-size:13px;font-weight:700;">Present</div>
+                                        <div style="font-size:12px;color:#94a3b8;">(${displayPresentCount}/${displayTotalCount})</div>
+                                    </div>
+                                </div>
+                                <strong style="font-size:18px;color:#38bdf8;">${displayRate}%</strong>
+                            </div>
+                            <div class="att-legend-item">
+                                <div style="display:flex;align-items:flex-start;gap:8px;">
+                                    <span class="att-legend-dot" style="background:#a855f7;"></span>
+                                    <div>
+                                        <div style="font-size:13px;font-weight:700;">Absent</div>
+                                        <div style="font-size:12px;color:#94a3b8;">(${displayAbsentCount}/${displayTotalCount})</div>
+                                    </div>
+                                </div>
+                                <strong style="font-size:18px;color:#c084fc;">${displayAbsentRate}%</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="att-note-banner ${isAllEligible ? '' : 'warning'}">
+                        <div>
+                            <strong>${isAllEligible ? 'You are meeting the attendance requirement!' : 'WARNING: Your attendance is below the required threshold!'}</strong>
+                            <div style="font-size:12px;opacity:0.9;">${isAllEligible ? 'Keep it up!' : 'Please contact Student Support if you have valid absence proofs.'}</div>
+                        </div>
+                        <i data-lucide="${isAllEligible ? 'check-circle-2' : 'alert-circle'}" style="width:18px;height:18px;flex-shrink:0;"></i>
+                    </div>
+                </div>
+
+                <div class="card-box" style="margin-bottom:0;">
+                    <h3><i data-lucide="calendar-check" style="width:16px;height:16px;color:#38bdf8;"></i> Session Breakdown</h3>
                     <table>
-                        <thead><tr><th>Module</th><th>Attended</th><th>Absent</th><th>Exam Status</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>Module</th>
+                                <th>Attended</th>
+                                <th>Absent</th>
+                                <th>Exam Status</th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            <tr><td><strong>${myRec.classId} Core</strong></td><td>${attended} / ${total}</td><td>${absent}</td><td><span class="status-pill ${examEligible ? '' : 'pill-rose'}">${examEligible ? 'Eligible' : 'Banned (<80%)'}</span></td></tr>
+                            ${defaultModules.map(m => {
+            const pillClass =
+                m.status === 'Eligible' ? 'status-pill' :
+                    m.status === 'Pending' ? 'status-pill pill-amber' :
+                        'status-pill pill-rose';
+            return `
+                                    <tr>
+                                        <td><strong>${m.name}</strong></td>
+                                        <td>${m.attended} / ${m.total}</td>
+                                        <td>${m.absent}</td>
+                                        <td><span class="${pillClass}">${m.status}</span></td>
+                                    </tr>`;
+        }).join('')}
                         </tbody>
                     </table>
+                    <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+                        <button type="button" id="btnViewAllSessions" style="background:none;border:none;color:#38bdf8;font-size:12.5px;font-weight:600;cursor:pointer;">
+                            View All Sessions →
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="att-bottom-grid">
+                <div class="card-box" style="margin-bottom:0;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                        <h3 style="margin-bottom:0;"><i data-lucide="trending-up" style="width:16px;height:16px;color:#38bdf8;"></i> Attendance Trend</h3>
+                        <div style="text-align:right;">
+                            <strong style="font-size:15px;color:#38bdf8;">${displayRate}%</strong>
+                            <div style="font-size:11.5px;color:#94a3b8;">Dec 2025</div>
+                        </div>
+                    </div>
+                    <div style="height:175px;"><canvas id="stuAttTrendCanvas"></canvas></div>
+                </div>
+
+                <div class="card-box" style="margin-bottom:0;">
+                    <h3><i data-lucide="award" style="width:16px;height:16px;color:#38bdf8;"></i> Exam Eligibility</h3>
+                    <div class="att-eligibility-card">
+                        <div class="att-eligibility-badge" ${isAllEligible ? '' : 'style="background:rgba(244,63,94,0.16);border-color:rgba(244,63,94,0.4);color:#fb7185;"'}>
+                            <i data-lucide="${isAllEligible ? 'check' : 'x'}" style="width:24px;height:24px;"></i>
+                        </div>
+                        <div>
+                            <div style="font-size:16px;font-weight:800;color:${isAllEligible ? '#34d399' : '#fb7185'};margin-bottom:6px;">
+                                ${isAllEligible ? 'Eligible for Final Exam' : 'Final Exam Eligibility Restricted'}
+                            </div>
+                            <p style="font-size:13px;color:#cbd5e1;line-height:1.5;">
+                                ${isAllEligible
+                ? 'You have met the attendance requirement for all registered modules.'
+                : 'One or more modules have absences below the 80% attendance requirement. Submit an appeal in Student Support.'}
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>`;
+
+        document.getElementById('btnViewAllSessions')?.addEventListener('click', () => switchTab('schedules'));
+
         if (typeof Chart !== 'undefined') {
             new Chart(document.getElementById('stuAttDoughnut'), {
                 type: 'doughnut',
                 data: {
-                    labels: [`Present (${attRate}%)`, `Absent (${100 - attRate}%)`],
-                    datasets: [{ data: [attRate, 100 - attRate], backgroundColor: [examEligible ? '#38bdf8' : '#f43f5e', '#1e293b'] }]
+                    labels: ['Present', 'Absent'],
+                    datasets: [{
+                        data: [displayRate, displayAbsentRate],
+                        backgroundColor: ['#38bdf8', '#a855f7'],
+                        borderWidth: 0,
+                        cutout: '76%'
+                    }]
                 },
-                options: { plugins: { legend: { labels: { color: '#94a3b8' } } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            new Chart(document.getElementById('stuAttTrendCanvas'), {
+                type: 'line',
+                data: {
+                    labels: ['Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                    datasets: [{
+                        data: [88, 91, 93, 94, displayRate],
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.14)',
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#38bdf8'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { min: 25, max: 100, ticks: { callback: v => v + '%', color: '#94a3b8', stepSize: 25 }, grid: { color: 'rgba(148, 163, 184, 0.12)' } },
+                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+                    }
+                }
             });
         }
 
