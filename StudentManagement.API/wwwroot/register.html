@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Create Account - Unit University SIMS</title>
     <link rel="stylesheet" href="css/style.css?v=19">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -351,8 +351,13 @@
     <script>
                 document.querySelectorAll('.uit-reg-eye').forEach(btn => {
                     btn.addEventListener('click', () => {
-                        const inp = document.getElementById(btn.dataset.target);
-                        if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+                        if (!(btn instanceof HTMLElement)) return;
+                        const targetId = btn.dataset.target;
+                        if (!targetId) return;
+                        const inp = document.getElementById(targetId);
+                        if (inp instanceof HTMLInputElement) {
+                            inp.type = inp.type === 'password' ? 'text' : 'password';
+                        }
                     });
                 });
                 document.getElementById('btnGoogleReg')?.addEventListener('click', () => {

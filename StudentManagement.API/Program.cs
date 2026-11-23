@@ -69,7 +69,7 @@ builder.Services.AddScoped<ITeacherRepository, SqlTeacherRepository>();
 builder.Services.AddScoped<ICourseRepository, SqlCourseRepository>();
 builder.Services.AddScoped<IGradeRepository, SqlGradeRepository>();
 builder.Services.AddScoped<IAttendanceRepository, SqlAttendanceRepository>();
-
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddTransient<IStudentValidator, StudentValidator>();
 builder.Services.AddTransient<ITuitionPolicy, StandardTuitionPolicy>();
 builder.Services.AddScoped<IStudentService, StudentService>();
