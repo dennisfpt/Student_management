@@ -75,6 +75,7 @@
         }
     });
 
+    // Bấm "Continue with Google" -> đăng nhập thẳng theo role đang chọn
     document.querySelectorAll('#btnGoogleLogin, .btn-google-light, .btn-google').forEach(btn => {
         btn.removeAttribute('onclick');
         btn.addEventListener('click', async (e) => {
@@ -97,7 +98,7 @@
                     saveUserAndRedirect(data, role, demoEmail, demoName);
                     return;
                 }
-            } catch (_) { /* dùng fallback bên dưới */ }
+            } catch (_) { /* fallback */ }
 
             saveUserAndRedirect(null, role, demoEmail, demoName);
         });

@@ -60,6 +60,7 @@
         }
     });
 
+    // Bấm "Continue with Google" trên trang Register -> vào thẳng portal theo role đang chọn
     document.querySelectorAll('#btnGoogleRegister, .btn-google-dark, .btn-google').forEach(btn => {
         btn.removeAttribute('onclick');
         btn.addEventListener('click', async (e) => {
