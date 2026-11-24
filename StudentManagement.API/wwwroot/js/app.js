@@ -94,14 +94,30 @@ async function syncPortalState() {
             if (Array.isArray(data.schedules) && data.schedules.length > 0) cache.schedules = data.schedules;
 
             if (Array.isArray(data.classes)) {
+                const prevById = new Map((cache.classes || []).map(c => [c.id, c]));
+                const deptCounters = {};
+
                 cache.classes = data.classes.map(cl => {
                     const realCount = cache.students.filter(s => s.classId === cl.id).length;
-                    const lec = cache.teachers.find(t => t.id === cl.lecturerId);
+                    const prev = prevById.get(cl.id);
+                    const targetLecId = cl.lecturerId || prev?.lecturerId || '';
+                    let lec = cache.teachers.find(t => t.id === targetLecId);
+
+                    if (!lec && cache.teachers.length > 0) {
+                        const deptTeachers = cache.teachers.filter(t => t.department === cl.department);
+                        const pool = deptTeachers.length > 0 ? deptTeachers : cache.teachers;
+                        const idx = deptCounters[cl.department] || 0;
+                        lec = pool[Math.floor(idx / 3) % pool.length];
+                        deptCounters[cl.department] = idx + 1;
+                    }
+
+                    const invalidName = !cl.lecturerName || cl.lecturerName === 'Assigned Lecturer' || cl.lecturerName === 'Unassigned';
                     return {
                         ...cl,
                         maxCapacity: cl.maxCapacity || 30,
                         enrolledCount: (typeof cl.enrolledCount === 'number' && cl.enrolledCount > 0) ? cl.enrolledCount : realCount,
-                        lecturerName: cl.lecturerName || lec?.fullName || 'Assigned Lecturer'
+                        lecturerId: lec?.id || targetLecId,
+                        lecturerName: lec?.fullName || (!invalidName ? cl.lecturerName : prev?.lecturerName) || 'Unassigned'
                     };
                 });
             }

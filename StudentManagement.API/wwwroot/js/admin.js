@@ -329,15 +329,19 @@ function renderContent() {
                                 <td><strong>${cl.id}</strong></td>
                                 <td>${cl.name}</td>
                                 <td>${cl.department}</td>
-                                <td>${cl.lecturerName}</td>
+                                <td><strong>${cl.lecturerName || 'Unassigned'}</strong></td>
                                 <td><strong style="color:#38bdf8;">${cl.enrolledCount ?? 0} / ${cl.maxCapacity ?? 30}</strong></td>
                                 <td><span class="status-pill">${(cl.enrolledCount ?? 0) >= (cl.maxCapacity ?? 30) ? 'Full' : 'Active'}</span></td>
-                                <td><button class="btn-sm btn-edit" data-view-cls="${cl.id}">View Roster</button></td>
+                                <td>
+                                    <button class="btn-sm btn-success" data-assign-cls="${cl.id}">Assign Lecturer</button>
+                                    <button class="btn-sm btn-edit" data-view-cls="${cl.id}">View Roster</button>
+                                </td>
                             </tr>`).join('')}
                     </tbody>
                 </table>
             </div>`;
         document.getElementById('btnOpenAddClass')?.addEventListener('click', openAddClassModal);
+        c.querySelectorAll('[data-assign-cls]').forEach(btn => btn.addEventListener('click', () => openAssignClassLecturerModal(btn.dataset.assignCls)));
         c.querySelectorAll('[data-view-cls]').forEach(btn => btn.addEventListener('click', () => {
             filterClass = btn.dataset.viewCls;
             filterMajor = 'ALL';
@@ -1491,6 +1495,42 @@ function openAddClassModal() {
         if (!payload.id || !payload.name) return;
         await fetch('/api/academic/classes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         await syncPortalState();
+        closeModal();
+        renderContent();
+    });
+}
+
+function openAssignClassLecturerModal(classId) {
+    const cl = cache.classes.find(item => item.id === classId);
+    if (!cl) return;
+    const sameDeptTeachers = cache.teachers.filter(t => t.department === cl.department);
+    const list = sameDeptTeachers.length > 0 ? sameDeptTeachers : cache.teachers;
+
+    openModal(`Assign Lecturer • ${cl.id} (${cl.department})`, `
+        <div class="form-group"><label>Class</label><input class="input-control" value="${cl.id} - ${cl.name}" readonly></div>
+        <div class="form-group">
+            <label>Select Lecturer (Same Major)</label>
+            <select id="assignClsLecSel" class="input-control">
+                ${list.map(t => `<option value="${t.id}" ${t.id === cl.lecturerId ? 'selected' : ''}>${t.fullName} (${t.id} • ${t.department})</option>`).join('')}
+            </select>
+        </div>
+        <button class="btn-primary" id="btnConfirmAssignClsLec">Save Lecturer Assignment</button>
+    `);
+
+    document.getElementById('btnConfirmAssignClsLec')?.addEventListener('click', async () => {
+        const lecId = document.getElementById('assignClsLecSel').value;
+        const lec = cache.teachers.find(t => t.id === lecId);
+        if (!lec) return;
+
+        cl.lecturerId = lec.id;
+        cl.lecturerName = lec.fullName;
+
+        await fetch(`/api/academic/classes/${cl.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...cl, lecturerId: lec.id, lecturerName: lec.fullName })
+        }).catch(() => { });
+
         closeModal();
         renderContent();
     });
