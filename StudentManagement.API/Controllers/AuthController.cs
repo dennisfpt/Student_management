@@ -74,7 +74,7 @@ public class AuthController : ControllerBase
                 FullName = request.FullName.Trim(),
                 Email = email,
                 DateOfBirth = new DateTime(2006, 5, 15, 0, 0, 0, DateTimeKind.Utc),
-                Gpa = 3.50
+                Gpa = 0
             });
 
             _context.StudentProfiles.Add(new StudentProfile

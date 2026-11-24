@@ -64,21 +64,20 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 
 // 2. Đăng ký Dependency Injection cho Repositories, Policies & Services
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<IStudentRepository, SqlStudentRepository>();
 builder.Services.AddScoped<ITeacherRepository, SqlTeacherRepository>();
 builder.Services.AddScoped<ICourseRepository, SqlCourseRepository>();
 builder.Services.AddScoped<IGradeRepository, SqlGradeRepository>();
 builder.Services.AddScoped<IAttendanceRepository, SqlAttendanceRepository>();
-builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IEmailService, BrevoEmailService>();
 builder.Services.AddTransient<IStudentValidator, StudentValidator>();
 builder.Services.AddTransient<ITuitionPolicy, StandardTuitionPolicy>();
 builder.Services.AddScoped<IStudentService, StudentService>();
-
 // 3. Đăng ký Controllers & Swagger API Documentation
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddScoped<IEmailService, StudentManagement.Infrastructure.Services.EmailService>();
 
 var app = builder.Build();
 
