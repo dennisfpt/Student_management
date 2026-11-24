@@ -236,7 +236,7 @@ function renderContent() {
                         <option value="ALL">All Classes (${cache.classes.length})</option>
                         ${cache.classes
                 .filter(cl => filterMajor === 'ALL' || cl.department === filterMajor)
-                .map(cl => `<option value="${cl.id}" ${filterClass === cl.id ? 'selected' : ''}>${cl.id} (${cl.enrolledCount}/${cl.maxCapacity} SV)</option>`)
+                .map(cl => `<option value="${cl.id}" ${filterClass === cl.id ? 'selected' : ''}>${cl.id} (${cl.enrolledCount ?? 0}/${cl.maxCapacity ?? 30} SV)</option>`)
                 .join('')}
                     </select>
                 </div>
@@ -291,7 +291,7 @@ function renderContent() {
                     <thead><tr><th>Lecturer ID</th><th>Full Name</th><th>Single Major / Specialty</th><th>Assigned Classes</th><th>Email</th><th>Actions</th></tr></thead>
                     <tbody>
                         ${cache.teachers.map(t => {
-            const assigned = cache.classes.filter(cl => cl.lecturerId === t.id).map(cl => `${cl.id} (${cl.enrolledCount})`).join(', ') || 'None';
+            const assigned = cache.classes.filter(cl => cl.lecturerId === t.id).map(cl => `${cl.id} (${cl.enrolledCount ?? 0})`).join(', ') || 'None';
             return `
                             <tr>
                                 <td><strong>${t.id}</strong></td>
@@ -330,8 +330,8 @@ function renderContent() {
                                 <td>${cl.name}</td>
                                 <td>${cl.department}</td>
                                 <td>${cl.lecturerName}</td>
-                                <td><strong style="color:#38bdf8;">${cl.enrolledCount} / ${cl.maxCapacity}</strong></td>
-                                <td><span class="status-pill">${cl.enrolledCount >= cl.maxCapacity ? 'Full' : 'Active'}</span></td>
+                                <td><strong style="color:#38bdf8;">${cl.enrolledCount ?? 0} / ${cl.maxCapacity ?? 30}</strong></td>
+                                <td><span class="status-pill">${(cl.enrolledCount ?? 0) >= (cl.maxCapacity ?? 30) ? 'Full' : 'Active'}</span></td>
                                 <td><button class="btn-sm btn-edit" data-view-cls="${cl.id}">View Roster</button></td>
                             </tr>`).join('')}
                     </tbody>
@@ -354,21 +354,100 @@ function renderContent() {
         c.innerHTML = `<div class="page-header"><h1>Academic Semesters</h1></div><div class="card-box"><table><thead><tr><th>Code</th><th>Semester</th><th>Start</th><th>End</th><th>Status</th></tr></thead><tbody>${cache.semesters.map(s => `<tr><td><strong>${s.id}</strong></td><td>${s.name}</td><td>${s.start}</td><td>${s.end}</td><td><span class="status-pill">${s.status}</span></td></tr>`).join('')}</tbody></table></div>`;
 
     } else if (activeTab === 'schedules') {
+        const schedList = cache.schedules || [];
         c.innerHTML = `
             <div class="page-header">
-                <h1>Master Timetable</h1>
-                <button class="btn-action" id="btnNotifyTimetableChange"><i data-lucide="mail" style="width:15px;height:15px;"></i> Notify Timetable Change via Email</button>
+                <div>
+                    <h1>Master Timetable &amp; Lecturer Schedule Assignment</h1>
+                    <p style="color:var(--text-muted)">Assign teaching days, time slots, and rooms to lecturers for their classes</p>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-outline" id="btnNotifyTimetableChange"><i data-lucide="mail" style="width:15px;height:15px;"></i> Notify via Email</button>
+                    <button class="btn-action" id="btnOpenAssignSchedule"><i data-lucide="calendar-plus" style="width:15px;height:15px;"></i> Assign Schedule</button>
+                </div>
             </div>
             <div class="card-box">
-                <table class="timetable-grid">
-                    <thead><tr><th>Time</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th></tr></thead>
+                <table>
+                    <thead><tr><th>Day</th><th>Time</th><th>Class</th><th>Course / Module</th><th>Room</th><th>Assigned Lecturer</th></tr></thead>
                     <tbody>
-                        <tr><td><strong>08:00 - 10:00</strong></td><td><div class="slot-card slot-blue"><strong>IT-K26A1</strong><br>Web Architecture</div></td><td></td><td></td><td><div class="slot-card slot-amber"><strong>GD-K26A1</strong><br>UI/UX Design</div></td><td></td></tr>
-                        <tr><td><strong>10:30 - 12:00</strong></td><td></td><td><div class="slot-card slot-purple"><strong>MKT-K26A1</strong><br>Digital Marketing</div></td><td></td><td></td><td><div class="slot-card slot-emerald"><strong>IT-K26B1</strong><br>PostgreSQL DB</div></td></tr>
+                        ${schedList.map(sc => `
+                            <tr>
+                                <td><span class="status-pill pill-blue">${sc.day}</span></td>
+                                <td><strong>${sc.time}</strong></td>
+                                <td><strong>${sc.classId}</strong></td>
+                                <td>${sc.course}</td>
+                                <td>${sc.room}</td>
+                                <td>${sc.lecturer}</td>
+                            </tr>`).join('')}
                     </tbody>
                 </table>
             </div>`;
+
         document.getElementById('btnNotifyTimetableChange')?.addEventListener('click', () => switchTab('emails'));
+
+        document.getElementById('btnOpenAssignSchedule')?.addEventListener('click', () => {
+            const firstLec = cache.teachers[0];
+            const firstClasses = cache.classes.filter(cl => !firstLec || cl.department === firstLec.department);
+            openModal('Assign Teaching Schedule to Lecturer', `
+                <div class="form-group">
+                    <label>Lecturer</label>
+                    <select id="schLecturer" class="input-control">
+                        ${cache.teachers.map(t => `<option value="${t.id}" data-dept="${t.department}" data-name="${t.fullName}">${t.fullName} (${t.department})</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Class Section (Same Major)</label>
+                    <select id="schClass" class="input-control">
+                        ${firstClasses.map(cl => `<option value="${cl.id}" data-name="${cl.name}">${cl.id} - ${cl.name}</option>`).join('')}
+                    </select>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div class="form-group">
+                        <label>Day of Week</label>
+                        <select id="schDay" class="input-control">
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Time Slot</label>
+                        <select id="schTime" class="input-control">
+                            <option value="08:00 - 10:00">08:00 - 10:00</option>
+                            <option value="10:30 - 12:00">10:30 - 12:00</option>
+                            <option value="14:00 - 16:00">14:00 - 16:00</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group"><label>Room / Lab</label><input id="schRoom" class="input-control" value="Room A1.205"></div>
+                <button class="btn-primary" id="btnSaveScheduleSlot">Save Schedule</button>
+            `);
+
+            document.getElementById('schLecturer')?.addEventListener('change', (e) => {
+                const dept = e.target.selectedOptions[0]?.dataset.dept;
+                const schClass = document.getElementById('schClass');
+                const matched = cache.classes.filter(cl => !dept || cl.department === dept);
+                schClass.innerHTML = matched.map(cl => `<option value="${cl.id}" data-name="${cl.name}">${cl.id} - ${cl.name}</option>`).join('');
+            });
+
+            document.getElementById('btnSaveScheduleSlot')?.addEventListener('click', () => {
+                const lecOpt = document.getElementById('schLecturer').selectedOptions[0];
+                const clsOpt = document.getElementById('schClass').selectedOptions[0];
+                if (!clsOpt) return;
+                cache.schedules.push({
+                    day: document.getElementById('schDay').value,
+                    time: document.getElementById('schTime').value,
+                    classId: clsOpt.value,
+                    course: clsOpt.dataset.name || clsOpt.value,
+                    room: document.getElementById('schRoom').value.trim() || 'Room A1.201',
+                    lecturer: lecOpt?.dataset.name || 'Lecturer'
+                });
+                closeModal();
+                renderContent();
+            });
+        });
 
     } else if (activeTab === 'grades') {
         c.innerHTML = `<div class="page-header"><h1>Academic Grades</h1></div><div class="card-box"><table><thead><tr><th>Student ID</th><th>Subject</th><th>Midterm</th><th>Final</th><th>GPA</th><th>Result</th></tr></thead><tbody>${cache.grades.map(g => `<tr><td><strong>${g.studentId}</strong></td><td>${g.courseId}</td><td>${g.midtermScore}</td><td>${g.finalScore}</td><td>${g.gpa}</td><td><span class="status-pill">${g.status}</span></td></tr>`).join('')}</tbody></table></div>`;
@@ -819,8 +898,8 @@ function renderContent() {
                         <div style="max-height:175px; overflow-y:auto; border:1px solid var(--border-glass); border-radius:10px; padding:10px; background:rgba(6,11,25,0.55); display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                             ${cache.classes.map(cl => `
                                 <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:#f8fafc; cursor:pointer; padding:6px 8px; border-radius:8px; background:rgba(255,255,255,0.03);">
-                                    <input type="checkbox" class="chk-mail-class" value="${cl.id}" data-count="${cl.enrolledCount}">
-                                    <span><strong>${cl.id}</strong> (${cl.enrolledCount} SV) • <small style="color:var(--text-muted)">${cl.lecturerName}</small></span>
+                                    <input type="checkbox" class="chk-mail-class" value="${cl.id}" data-count="${cl.enrolledCount ?? 0}">
+                                    <span><strong>${cl.id}</strong> (${cl.enrolledCount ?? 0} SV) • <small style="color:var(--text-muted)">${cl.lecturerName}</small></span>
                                 </label>`).join('')}
                         </div>
                         <label style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12.5px; color:var(--text-muted); cursor:pointer;">
@@ -1208,7 +1287,7 @@ function openAddStudentModal() {
         <div class="form-group">
             <label>Assign Class (Max 30 Students)</label>
             <select id="stClass" class="input-control">
-                ${cache.classes.map(cl => `<option value="${cl.id}">${cl.id} - ${cl.department} (${cl.enrolledCount}/${cl.maxCapacity} SV)</option>`).join('')}
+                ${cache.classes.map(cl => `<option value="${cl.id}">${cl.id} - ${cl.department} (${cl.enrolledCount ?? 0}/${cl.maxCapacity ?? 30} SV)</option>`).join('')}
             </select>
         </div>
         <div class="form-group"><label>GPA</label><input id="stGpa" type="number" step="0.01" class="input-control" value="3.50"></div>
@@ -1259,7 +1338,7 @@ function openEditStudentModal(id) {
         <div class="form-group">
             <label>Class (Max 30 Students)</label>
             <select id="edStClass" class="input-control">
-                ${cache.classes.map(cl => `<option value="${cl.id}" ${s.classId === cl.id ? 'selected' : ''}>${cl.id} (${cl.enrolledCount}/${cl.maxCapacity} SV)</option>`).join('')}
+                ${cache.classes.map(cl => `<option value="${cl.id}" ${s.classId === cl.id ? 'selected' : ''}>${cl.id} (${cl.enrolledCount ?? 0}/${cl.maxCapacity ?? 30} SV)</option>`).join('')}
             </select>
         </div>
         <div class="form-group"><label>GPA</label><input id="edStGpa" type="number" step="0.01" class="input-control" value="${s.gpa ?? 3.5}"></div>

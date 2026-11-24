@@ -5,12 +5,7 @@ namespace StudentManagement.Infrastructure.Services;
 
 public class BrevoEmailService : IEmailService
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-
-    public BrevoEmailService(IHttpClientFactory httpClientFactory)
-    {
-        _httpClientFactory = httpClientFactory;
-    }
+    private static readonly HttpClient _httpClient = new();
 
     public async Task SendEmailAsync(string toEmail, string subject, string htmlBody)
     {
@@ -22,19 +17,17 @@ public class BrevoEmailService : IEmailService
             throw new InvalidOperationException("BREVO_API_KEY or SENDER_EMAIL is not configured in environment variables.");
         }
 
-        var client = _httpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.Clear();
-        client.DefaultRequestHeaders.Add("api-key", apiKey);
-
-        var payload = new
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.brevo.com/v3/smtp/email");
+        request.Headers.Add("api-key", apiKey);
+        request.Content = JsonContent.Create(new
         {
             sender = new { name = "Unit University SIMS", email = senderEmail },
             to = new[] { new { email = toEmail } },
             subject,
             htmlContent = htmlBody
-        };
+        });
 
-        var response = await client.PostAsJsonAsync("https://api.brevo.com/v3/smtp/email", payload);
+        using var response = await _httpClient.SendAsync(request);
         if (!response.IsSuccessStatusCode)
         {
             var err = await response.Content.ReadAsStringAsync();

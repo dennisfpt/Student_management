@@ -88,10 +88,24 @@ async function syncPortalState() {
         const res = await fetch(`/api/academic/state?email=${email}&t=${Date.now()}`);
         if (res.ok) {
             const data = await res.json();
-            if (data.students) cache.students = data.students;
-            if (data.teachers) cache.teachers = data.teachers;
-            if (data.classes) cache.classes = data.classes;
-            if (data.courses) cache.courses = data.courses;
+            if (Array.isArray(data.students)) cache.students = data.students;
+            if (Array.isArray(data.teachers)) cache.teachers = data.teachers;
+            if (Array.isArray(data.courses)) cache.courses = data.courses;
+            if (Array.isArray(data.schedules) && data.schedules.length > 0) cache.schedules = data.schedules;
+
+            if (Array.isArray(data.classes)) {
+                cache.classes = data.classes.map(cl => {
+                    const realCount = cache.students.filter(s => s.classId === cl.id).length;
+                    const lec = cache.teachers.find(t => t.id === cl.lecturerId);
+                    return {
+                        ...cl,
+                        maxCapacity: cl.maxCapacity || 30,
+                        enrolledCount: (typeof cl.enrolledCount === 'number' && cl.enrolledCount > 0) ? cl.enrolledCount : realCount,
+                        lecturerName: cl.lecturerName || lec?.fullName || 'Assigned Lecturer'
+                    };
+                });
+            }
+
             if (data.profile) dynamicState.profile = { ...dynamicState.profile, ...data.profile };
             if (data.invoices) dynamicState.invoices = data.invoices;
             if (data.announcements) dynamicState.announcements = data.announcements;
