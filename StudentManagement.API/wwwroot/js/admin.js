@@ -45,6 +45,69 @@ function switchTab(id) {
     renderContent();
 }
 
+function bindStudentCsvImport() {
+    const fileInput = document.getElementById('csvImportInput');
+    const btnImport = document.getElementById('btnImportCsv');
+    if (!fileInput || !btnImport) return;
+
+    btnImport.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const text = await file.text();
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (lines.length <= 1) {
+            alert('CSV file has no student rows to import.');
+            fileInput.value = '';
+            return;
+        }
+
+        const startIndex = /^(studentid|id)\b/i.test(lines[0]) ? 1 : 0;
+        let importedCount = 0;
+        let skippedCount = 0;
+
+        for (let i = startIndex; i < lines.length; i++) {
+            const cols = lines[i].split(',').map(v => v.replace(/^"|"$/g, '').trim());
+            const fullName = cols[1] || '';
+            const major = cols[2] || 'Information Technology';
+            const classId = cols[3] || (cache.classes[0]?.id || 'IT-K26A1');
+            const email = cols[4] || '';
+            const gpa = Number(cols[5] ?? 0);
+
+            if (!fullName || !email || !email.includes('@') || Number.isNaN(gpa) || gpa < 0 || gpa > 4) {
+                skippedCount++;
+                continue;
+            }
+
+            try {
+                const res = await fetch('/api/student/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fullName,
+                        email,
+                        major,
+                        classId,
+                        dateOfBirth: '2006-05-15',
+                        gpa
+                    })
+                });
+                if (res.ok) importedCount++;
+                else skippedCount++;
+            } catch (_) {
+                skippedCount++;
+            }
+        }
+
+        fileInput.value = '';
+        await syncPortalState();
+        renderContent();
+        alert(`Import finished: ${importedCount} imported, ${skippedCount} skipped/invalid.`);
+    });
+}
+
 function renderContent() {
     const c = document.getElementById('mainContent');
 
@@ -155,6 +218,8 @@ function renderContent() {
             <div class="page-header">
                 <div><h1>Student Directory (${filtered.length} / ${cache.students.length} Students)</h1><p style="color:var(--text-muted)">Real-time enrollment across Information Technology, Marketing &amp; Graphic Design</p></div>
                 <div style="display:flex; gap:10px;">
+                    <input type="file" id="csvImportInput" accept=".csv,text/csv" style="display:none;">
+                    <button class="btn-outline" id="btnImportCsv"><i data-lucide="upload" style="width:15px;height:15px;"></i> Import CSV</button>
                     <button class="btn-outline" id="btnExportCsv"><i data-lucide="download" style="width:15px;height:15px;"></i> Export CSV</button>
                     <button class="btn-action" id="btnOpenAddStudent"><i data-lucide="plus" style="width:15px;height:15px;"></i> Add Student</button>
                 </div>
@@ -208,6 +273,7 @@ function renderContent() {
         document.getElementById('selFilterClass')?.addEventListener('change', (e) => { filterClass = e.target.value; studentPage = 1; renderContent(); });
         document.getElementById('btnPrevPage')?.addEventListener('click', () => { if (studentPage > 1) { studentPage--; renderContent(); } });
         document.getElementById('btnNextPage')?.addEventListener('click', () => { if (studentPage < totalPages) { studentPage++; renderContent(); } });
+        bindStudentCsvImport();
         document.getElementById('btnExportCsv')?.addEventListener('click', exportCsv);
         document.getElementById('btnOpenAddStudent')?.addEventListener('click', openAddStudentModal);
         c.querySelectorAll('[data-edit-student]').forEach(btn => btn.addEventListener('click', () => openEditStudentModal(btn.dataset.editStudent)));
