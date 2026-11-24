@@ -1,4 +1,6 @@
-﻿document.addEventListener('DOMContentLoaded', () => {
+﻿const GOOGLE_CLIENT_ID = '621031816511-ro6ihrmgvve5jr54537fe5hervc0uqdc.apps.googleusercontent.com';
+
+document.addEventListener('DOMContentLoaded', () => {
     if (typeof lucide !== 'undefined') lucide.createIcons();
     let currentRole = 'Student';
 
@@ -37,6 +39,13 @@
         redirectByRole(role);
     }
 
+    function showError(msg) {
+        const errEl = document.getElementById('errorMsg');
+        if (!errEl) return;
+        errEl.innerText = msg;
+        errEl.style.display = 'block';
+    }
+
     document.querySelectorAll('.role-tab').forEach(btn => {
         btn.addEventListener('click', () => selectRole(btn.dataset.role, btn));
     });
@@ -62,45 +71,68 @@
             if (res.ok) {
                 const data = await res.json();
                 saveUserAndRedirect(data, currentRole, email, email);
-            } else if (errEl) {
+            } else {
                 const err = await res.json().catch(() => ({}));
-                errEl.innerText = err.message || 'Invalid email or password!';
-                errEl.style.display = 'block';
+                showError(err.message || 'Invalid email or password!');
             }
         } catch (_) {
-            if (errEl) {
-                errEl.innerText = 'Network error. Please try again!';
-                errEl.style.display = 'block';
-            }
+            showError('Network error. Please try again!');
         }
     });
 
-    // Bấm "Continue with Google" -> đăng nhập thẳng theo role đang chọn
+    // Bấm "Continue with Google" -> bật popup chọn tài khoản Google thật
     document.querySelectorAll('#btnGoogleLogin, .btn-google-light, .btn-google').forEach(btn => {
         btn.removeAttribute('onclick');
-        btn.addEventListener('click', async (e) => {
+        btn.addEventListener('click', (e) => {
             e.preventDefault();
+            const errEl = document.getElementById('errorMsg');
+            if (errEl) errEl.style.display = 'none';
+
+            if (!window.google?.accounts?.oauth2) {
+                showError('Google Sign-In SDK is still loading. Please try again in a second.');
+                return;
+            }
+
             const role = document.querySelector('.role-tab.active')?.dataset.role || currentRole || 'Student';
-            const firstDemo = document.querySelector(`.demo-account-item[data-role="${role}"]`);
-            const demoEmail = firstDemo?.dataset.email
-                || (role === 'Admin' ? 'admin@unit.edu.vn' : (role === 'Teacher' ? 'lecturer@unit.edu.vn' : 'student@unit.edu.vn'));
-            const demoPass = firstDemo?.dataset.pass || '123456';
-            const demoName = role === 'Admin' ? 'System Admin' : (role === 'Teacher' ? 'University Lecturer' : 'Google Student');
+            const tokenClient = window.google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: 'openid email profile',
+                callback: async (tokenResponse) => {
+                    if (!tokenResponse?.access_token) return;
+                    try {
+                        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                            headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                        });
+                        const profile = await userInfoRes.json();
+                        if (!profile?.email) {
+                            showError('Could not retrieve your Google email.');
+                            return;
+                        }
 
-            try {
-                const res = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: demoEmail, password: demoPass })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    saveUserAndRedirect(data, role, demoEmail, demoName);
-                    return;
+                        const res = await fetch('/api/auth/google', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                email: profile.email,
+                                fullName: profile.name || profile.email.split('@')[0],
+                                role
+                            })
+                        });
+
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            showError(data.message || 'Google sign-in failed.');
+                            return;
+                        }
+
+                        saveUserAndRedirect(data, role, profile.email, profile.name || profile.email);
+                    } catch (_) {
+                        showError('Failed to complete Google sign-in.');
+                    }
                 }
-            } catch (_) { /* fallback */ }
+            });
 
-            saveUserAndRedirect(null, role, demoEmail, demoName);
+            tokenClient.requestAccessToken({ prompt: 'select_account' });
         });
     });
 });

@@ -131,6 +131,88 @@ public class AuthController : ControllerBase
         });
     }
 
+    [HttpPost("google")]
+    public async Task<IActionResult> GoogleAuth([FromBody] GoogleAuthRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+        {
+            return BadRequest(new { message = "Google email is required." });
+        }
+
+        var email = request.Email.Trim().ToLowerInvariant();
+        var fullName = string.IsNullOrWhiteSpace(request.FullName) ? email.Split('@')[0] : request.FullName.Trim();
+        var requestedRole = string.IsNullOrWhiteSpace(request.Role) ? "Student" : request.Role.Trim();
+        var major = "Information Technology";
+
+        var user = await _context.UserAccounts.FirstOrDefaultAsync(u => u.Username.ToLower() == email);
+        if (user == null)
+        {
+            var role = requestedRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) ? "Student" : requestedRole;
+            var assignedCode = role.Equals("Teacher", StringComparison.OrdinalIgnoreCase)
+                ? $"GV{(await _context.Teachers.CountAsync() + 1):D3}"
+                : $"SV26{(await _context.Students.CountAsync() + 1):D3}";
+
+            user = new UserAccount
+            {
+                Username = email,
+                PasswordHash = HashPassword(Guid.NewGuid().ToString("N")),
+                FullName = fullName,
+                Role = role
+            };
+            _context.UserAccounts.Add(user);
+
+            if (role.Equals("Teacher", StringComparison.OrdinalIgnoreCase))
+            {
+                _context.Teachers.Add(new Teacher
+                {
+                    Id = assignedCode,
+                    FullName = fullName,
+                    Email = email,
+                    Department = major,
+                    PhoneNumber = "0901234567"
+                });
+            }
+            else
+            {
+                _context.Students.Add(new Student
+                {
+                    Id = assignedCode,
+                    FullName = fullName,
+                    Email = email,
+                    DateOfBirth = new DateTime(2006, 5, 15, 0, 0, 0, DateTimeKind.Utc),
+                    Gpa = 0
+                });
+
+                _context.StudentProfiles.Add(new StudentProfile
+                {
+                    Email = email,
+                    StudentId = assignedCode,
+                    FullName = fullName,
+                    Phone = "0901234567",
+                    Major = major
+                });
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        var student = await _context.Students.FirstOrDefaultAsync(s => s.Email.ToLower() == email);
+        var teacher = await _context.Teachers.FirstOrDefaultAsync(t => t.Email.ToLower() == email);
+        var profile = await _context.StudentProfiles.FirstOrDefaultAsync(p => p.Email.ToLower() == email);
+
+        var userCode = student?.Id ?? teacher?.Id ?? "";
+        var resolvedMajor = profile?.Major ?? teacher?.Department ?? major;
+
+        return Ok(new
+        {
+            email = user.Username,
+            fullName = user.FullName,
+            role = user.Role,
+            userCode,
+            major = resolvedMajor
+        });
+    }
+
     [HttpPost("send-student-email")]
     public async Task<IActionResult> SendEmailToStudent([FromBody] SendNotificationEmailRequest req)
     {
@@ -173,4 +255,5 @@ public record PortalRegisterRequest(
     string? Major);
 
 public record PortalLoginRequest(string Email, string Password);
+public record GoogleAuthRequest(string Email, string? FullName, string? Role);
 public record SendNotificationEmailRequest(string ToEmail, string Subject, string Message);

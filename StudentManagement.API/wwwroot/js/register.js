@@ -1,6 +1,16 @@
-﻿document.addEventListener('DOMContentLoaded', () => {
+﻿const GOOGLE_CLIENT_ID = '621031816511-ro6ihrmgvve5jr54537fe5hervc0uqdc.apps.googleusercontent.com';
+
+document.addEventListener('DOMContentLoaded', () => {
     if (typeof lucide !== 'undefined') lucide.createIcons();
     let selectedRegRole = 'Student';
+
+    function showRegMessage(text, isError = true) {
+        const msgEl = document.getElementById('regMessage');
+        if (!msgEl) return;
+        msgEl.style.color = isError ? '#f87171' : '#34d399';
+        msgEl.innerText = text;
+        msgEl.style.display = 'block';
+    }
 
     document.querySelectorAll('.role-card').forEach(card => {
         card.addEventListener('click', () => {
@@ -23,14 +33,9 @@
         const major = document.getElementById('regMajor')?.value || 'Information Technology';
         const password = document.getElementById('regPass')?.value || '';
         const confirmPass = document.getElementById('regConfirmPass')?.value || '';
-        const msgEl = document.getElementById('regMessage');
-
-        if (!msgEl) return;
 
         if (password !== confirmPass) {
-            msgEl.style.color = '#f87171';
-            msgEl.innerText = 'Passwords do not match!';
-            msgEl.style.display = 'block';
+            showRegMessage('Passwords do not match!', true);
             return;
         }
 
@@ -43,60 +48,77 @@
 
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
-                msgEl.style.color = '#f87171';
-                msgEl.innerText = data.message || 'Registration failed!';
-                msgEl.style.display = 'block';
+                showRegMessage(data.message || 'Registration failed!', true);
                 return;
             }
 
-            msgEl.style.color = '#34d399';
-            msgEl.innerText = `Account ${data.userCode || ''} created! Redirecting to Sign In...`.trim();
-            msgEl.style.display = 'block';
+            showRegMessage(`Account ${data.userCode || ''} created! Redirecting to Sign In...`.trim(), false);
             setTimeout(() => { window.location.href = 'login.html'; }, 1000);
         } catch (_) {
-            msgEl.style.color = '#f87171';
-            msgEl.innerText = 'Network error. Please try again!';
-            msgEl.style.display = 'block';
+            showRegMessage('Network error. Please try again!', true);
         }
     });
 
-    // Bấm "Continue with Google" trên trang Register -> vào thẳng portal theo role đang chọn
-    document.querySelectorAll('#btnGoogleRegister, .btn-google-dark, .btn-google').forEach(btn => {
+    // Bấm "Sign up with Google" -> bật popup chọn tài khoản Google thật & tạo/đăng nhập luôn
+    document.querySelectorAll('#btnGoogleReg, #btnGoogleRegister, .btn-google-dark, .btn-google').forEach(btn => {
         btn.removeAttribute('onclick');
-        btn.addEventListener('click', async (e) => {
+        btn.addEventListener('click', (e) => {
             e.preventDefault();
+            if (!window.google?.accounts?.oauth2) {
+                showRegMessage('Google Sign-In SDK is still loading. Please try again in a second.', true);
+                return;
+            }
+
             const role = document.querySelector('.role-card.active')?.dataset.role || selectedRegRole || 'Student';
-            const demoEmail = role === 'Teacher' ? 'lecturer@unit.edu.vn' : 'student@unit.edu.vn';
-            const demoName = role === 'Teacher' ? 'University Lecturer' : 'Google Student';
+            const tokenClient = window.google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: 'openid email profile',
+                callback: async (tokenResponse) => {
+                    if (!tokenResponse?.access_token) return;
+                    try {
+                        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                            headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                        });
+                        const profile = await userInfoRes.json();
+                        if (!profile?.email) {
+                            showRegMessage('Could not retrieve your Google email.', true);
+                            return;
+                        }
 
-            try {
-                const res = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: demoEmail, password: '123456' })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    localStorage.setItem('sims_user', JSON.stringify({
-                        email: data.email || demoEmail,
-                        fullName: data.fullName || demoName,
-                        role: data.role || role,
-                        userCode: data.userCode || (role === 'Teacher' ? 'GV001' : 'SV26001'),
-                        major: data.major || 'Information Technology'
-                    }));
-                    window.location.href = role === 'Teacher' ? 'teacher.html' : 'student.html';
-                    return;
+                        const res = await fetch('/api/auth/google', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                email: profile.email,
+                                fullName: profile.name || profile.email.split('@')[0],
+                                role
+                            })
+                        });
+
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            showRegMessage(data.message || 'Google sign-up failed.', true);
+                            return;
+                        }
+
+                        const finalRole = data.role || role;
+                        localStorage.setItem('sims_user', JSON.stringify({
+                            email: data.email || profile.email,
+                            fullName: data.fullName || profile.name || profile.email,
+                            role: finalRole,
+                            userCode: data.userCode || (finalRole === 'Teacher' ? 'GV001' : 'SV26001'),
+                            major: data.major || 'Information Technology'
+                        }));
+                        window.location.href = finalRole === 'Admin'
+                            ? 'admin.html'
+                            : (finalRole === 'Teacher' ? 'teacher.html' : 'student.html');
+                    } catch (_) {
+                        showRegMessage('Failed to complete Google sign-up.', true);
+                    }
                 }
-            } catch (_) { /* fallback */ }
+            });
 
-            localStorage.setItem('sims_user', JSON.stringify({
-                email: demoEmail,
-                fullName: demoName,
-                role,
-                userCode: role === 'Teacher' ? 'GV001' : 'SV26001',
-                major: 'Information Technology'
-            }));
-            window.location.href = role === 'Teacher' ? 'teacher.html' : 'student.html';
+            tokenClient.requestAccessToken({ prompt: 'select_account' });
         });
     });
 });
