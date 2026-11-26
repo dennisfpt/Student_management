@@ -189,7 +189,6 @@ function balanceStudentsIntoClasses(rawStudents, rawClasses, teachers) {
         return created;
     };
 
-    // Chia đều sinh viên không có lớp (hoặc lớp bị dồn quá tải) theo từng ngành
     const normalizedStudents = rawStudents.map((s, idx) => {
         const rawClass = (s.classId || s.classCode || '').trim();
         const major = (s.major && s.major.trim())
@@ -205,7 +204,6 @@ function balanceStudentsIntoClasses(rawStudents, rawClasses, teachers) {
         };
     });
 
-    // Bước 1: xếp các sinh viên đã có mã lớp hợp lệ nếu lớp còn chỗ (<= 30)
     const unassigned = [];
     for (const st of normalizedStudents) {
         const target = st._preferredClass ? classMap.get(st._preferredClass) : null;
@@ -217,7 +215,6 @@ function balanceStudentsIntoClasses(rawStudents, rawClasses, teachers) {
         }
     }
 
-    // Bước 2: chia đều số sinh viên còn lại xoay vòng qua các lớp cùng ngành (mỗi lớp tối đa 30 SV)
     const rrIndexByDept = {};
     for (const st of unassigned) {
         const deptClasses = classList.filter(c => c.department === st.major);
@@ -241,6 +238,21 @@ function balanceStudentsIntoClasses(rawStudents, rawClasses, teachers) {
     }
 
     return { students: normalizedStudents, classes: classList };
+}
+
+function getVisibleAnnouncements() {
+    const list = Array.isArray(dynamicState?.announcements) ? dynamicState.announcements : [];
+    if (currentUser?.role === 'Teacher') {
+        return list.filter(a => {
+            const cat = (a.category || '').toLowerCase();
+            const title = (a.title || '').toLowerCase();
+            const target = (a.targetGroup || '').toLowerCase();
+            if (cat.includes('tuition') || title.includes('tuition') || title.includes('vietqr')) return false;
+            if (target === 'students' || target === 'student') return false;
+            return true;
+        });
+    }
+    return list;
 }
 
 function buildVietQrUrl(invoice) {
@@ -273,32 +285,33 @@ function resolveAttendanceModuleName(rec, index) {
 
 function updateNotificationBell() {
     const topbarUser = document.querySelector('.topbar-user');
-    const topbarRight = topbarUser?.parentElement || document.querySelector('.topbar-actions') || document.querySelector('.topbar');
-    if (!topbarRight || !topbarUser) return;
+    const topbar = document.querySelector('.topbar');
+    if (!topbarUser || !topbar) return;
 
-    const count = Array.isArray(dynamicState?.announcements) ? dynamicState.announcements.length : 0;
+    const visibleList = getVisibleAnnouncements();
+    const count = visibleList.length;
     let bellWrap = document.getElementById('topbarNotifBellWrap');
     if (!bellWrap) {
         bellWrap = document.createElement('button');
         bellWrap.id = 'topbarNotifBellWrap';
         bellWrap.type = 'button';
         bellWrap.title = 'Notifications';
-        bellWrap.style.cssText = 'position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;border:1px solid rgba(148,163,184,0.25);background:rgba(15,23,42,0.75);color:#f8fafc;cursor:pointer;margin-right:10px;';
+        bellWrap.style.cssText = 'position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;border:1px solid rgba(148,163,184,0.25);background:rgba(15,23,42,0.75);color:#f8fafc;cursor:pointer;margin-right:12px;flex-shrink:0;';
         bellWrap.innerHTML = `
             <i data-lucide="bell" style="width:17px;height:17px;"></i>
             <span id="topbarNotifBadge" style="position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;display:none;align-items:center;justify-content:center;">0</span>
         `;
         bellWrap.addEventListener('click', () => {
-            if (typeof switchTab === 'function' && currentUser?.role === 'Student') {
+            if (typeof switchTab === 'function' && (currentUser?.role === 'Student' || currentUser?.role === 'Teacher')) {
                 switchTab('notifications');
                 return;
             }
-            const items = (dynamicState?.announcements || []).slice(0, 8);
+            const items = getVisibleAnnouncements().slice(0, 8);
             openModal(`Notifications (${items.length})`, items.length
                 ? items.map(n => `<div style="padding:10px 0;border-bottom:1px solid rgba(148,163,184,0.15);"><strong>${n.title || 'Notice'}</strong> <small style="color:#64748b;">• ${n.createdAt || ''}</small><p style="margin:4px 0 0;color:#cbd5e1;font-size:12.5px;">${n.message || ''}</p></div>`).join('')
                 : '<p style="color:#94a3b8;">No notifications yet.</p>');
         });
-        topbarRight.insertBefore(bellWrap, topbarUser);
+        topbarUser.insertBefore(bellWrap, topbarUser.firstChild);
     }
 
     const badge = document.getElementById('topbarNotifBadge');
