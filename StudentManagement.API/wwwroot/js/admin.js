@@ -4,7 +4,7 @@
 
 const ADMIN_MENUS = [
     { id: 'overview', icon: 'layout-dashboard', label: 'Overview' },
-    { id: 'students', icon: 'graduation-cap', label: 'Students (500)' },
+    { id: 'students', icon: 'graduation-cap', label: 'Students' },
     { id: 'teachers', icon: 'user-check', label: 'Lecturers' },
     { id: 'classes', icon: 'school', label: 'Classes (≤30/cls)' },
     { id: 'courses', icon: 'book-open', label: 'Courses' },
@@ -32,9 +32,11 @@ const approvedExamIds = new Set();
 
 function renderSidebar() {
     const sidebar = document.getElementById('sidebarMenu');
-    sidebar.innerHTML = ADMIN_MENUS.map(m =>
-        `<div class="menu-item ${m.id === activeTab ? 'active' : ''}" data-tab="${m.id}"><i data-lucide="${m.icon}"></i><span>${m.label}</span></div>`
-    ).join('');
+    const studentTotal = Array.isArray(cache?.students) ? cache.students.length : 0;
+    sidebar.innerHTML = ADMIN_MENUS.map(m => {
+        const label = m.id === 'students' ? `Students (${studentTotal})` : m.label;
+        return `<div class="menu-item ${m.id === activeTab ? 'active' : ''}" data-tab="${m.id}"><i data-lucide="${m.icon}"></i><span>${label}</span></div>`;
+    }).join('');
     sidebar.querySelectorAll('.menu-item').forEach(el => el.addEventListener('click', () => switchTab(el.dataset.tab)));
     refreshIcons();
 }
@@ -103,6 +105,7 @@ function bindStudentCsvImport() {
 
         fileInput.value = '';
         await syncPortalState();
+        renderSidebar();
         renderContent();
         alert(`Import finished: ${importedCount} imported, ${skippedCount} skipped/invalid.`);
     });
@@ -260,7 +263,7 @@ function renderContent() {
                     </tbody>
                 </table>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; color:var(--text-muted); font-size:13px;">
-                    <span>Showing ${startIdx + 1}–${Math.min(startIdx + STUDENTS_PER_PAGE, filtered.length)} of ${filtered.length} students</span>
+                    <span>Showing ${filtered.length === 0 ? 0 : startIdx + 1}–${Math.min(startIdx + STUDENTS_PER_PAGE, filtered.length)} of ${filtered.length} students</span>
                     <div style="display:flex; gap:8px;">
                         <button class="btn-outline" id="btnPrevPage" ${studentPage <= 1 ? 'disabled' : ''}>← Prev</button>
                         <span style="padding:8px 12px;">Page ${studentPage} / ${totalPages}</span>
@@ -766,7 +769,7 @@ function renderContent() {
         const totalBudget = awards.reduce((sum, a) => sum + Number(a.waiverAmountVnd || 0), 0);
         c.innerHTML = `
             <div class="page-header">
-                <div><h1>Merit Scholarship &amp; Tuition Waiver Engine</h1><p style="color:var(--text-muted)">Automatically evaluate 500 students across IT, Marketing &amp; Graphic Design based on cumulative GPA</p></div>
+                <div><h1>Merit Scholarship &amp; Tuition Waiver Engine</h1><p style="color:var(--text-muted)">Automatically evaluate students across IT, Marketing &amp; Graphic Design based on cumulative GPA</p></div>
                 <button class="btn-action" id="btnRunScholarshipEval"><i data-lucide="sparkles" style="width:16px;height:16px;"></i> Run Auto-Evaluation (${cache.students.length} Students)</button>
             </div>
             <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);">
@@ -778,7 +781,7 @@ function renderContent() {
                 <table>
                     <thead><tr><th>Student ID</th><th>Full Name</th><th>Major</th><th>Class</th><th>GPA</th><th>Scholarship Tier</th><th>Tuition Waiver</th></tr></thead>
                     <tbody>
-                        ${awards.length === 0 ? '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:24px;">Click "Run Auto-Evaluation" to calculate merit scholarships for all 500 students.</td></tr>' : awards.slice(0, 60).map(a => `
+                        ${awards.length === 0 ? `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:24px;">Click "Run Auto-Evaluation" to calculate merit scholarships for all ${cache.students.length} students.</td></tr>` : awards.slice(0, 60).map(a => `
                             <tr>
                                 <td><strong>${a.studentId}</strong></td>
                                 <td>${a.studentName}</td>
@@ -962,6 +965,7 @@ function renderContent() {
 
         document.getElementById('btnForceSqlSync')?.addEventListener('click', async () => {
             await syncPortalState();
+            renderSidebar();
             renderContent();
             alert(`Synced ${cache.students.length} Students and ${cache.teachers.length} Lecturers from PostgreSQL!`);
         });
@@ -1323,6 +1327,7 @@ function openAddStudentModal() {
         }
         await syncPortalState();
         closeModal();
+        renderSidebar();
         renderContent();
     });
 }
@@ -1379,6 +1384,7 @@ async function deleteStudent(id) {
     if (!confirm(`Delete student ${id}?`)) return;
     await fetch(`/api/student/${id}`, { method: 'DELETE' });
     await syncPortalState();
+    renderSidebar();
     renderContent();
 }
 
@@ -1603,7 +1609,7 @@ function openQuickPersonEmailModal(email, name) {
 
 function exportCsv() {
     const csv = 'StudentID,FullName,Major,ClassID,Email,GPA\n' + cache.students.map(s => `${s.id},"${s.fullName}","${s.major}",${s.classId},${s.email},${s.gpa ?? 3.5}`).join('\n');
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })); a.download = 'UnitUniversity_500_Students.csv'; a.click();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })); a.download = `UnitUniversity_${cache.students.length}_Students.csv`; a.click();
 }
 
 (async () => {

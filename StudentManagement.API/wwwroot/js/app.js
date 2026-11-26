@@ -115,6 +115,15 @@ let dynamicState = {
     auditLogs: []
 };
 
+function inferMajorFromClassId(classId, index = 0) {
+    const code = String(classId || '').toUpperCase();
+    if (code.startsWith('MKT-')) return 'Marketing';
+    if (code.startsWith('GD-')) return 'Graphic Design';
+    if (code.startsWith('IT-')) return 'Information Technology';
+    const majors = ['Information Technology', 'Marketing', 'Graphic Design'];
+    return majors[index % majors.length];
+}
+
 function buildVietQrUrl(invoice) {
     const bank = invoice.bankCode || 'MB';
     const acc = invoice.accountNo || '0865156242';
@@ -141,6 +150,44 @@ function resolveAttendanceModuleName(rec, index) {
     }
 
     return rec.courseId || rec.classId || 'Core Academic Module';
+}
+
+function updateNotificationBell() {
+    const topbarUser = document.querySelector('.topbar-user');
+    const topbarRight = topbarUser?.parentElement || document.querySelector('.topbar-actions') || document.querySelector('.topbar');
+    if (!topbarRight || !topbarUser) return;
+
+    const count = Array.isArray(dynamicState?.announcements) ? dynamicState.announcements.length : 0;
+    let bellWrap = document.getElementById('topbarNotifBellWrap');
+    if (!bellWrap) {
+        bellWrap = document.createElement('button');
+        bellWrap.id = 'topbarNotifBellWrap';
+        bellWrap.type = 'button';
+        bellWrap.title = 'Notifications';
+        bellWrap.style.cssText = 'position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;border:1px solid rgba(148,163,184,0.25);background:rgba(15,23,42,0.75);color:#f8fafc;cursor:pointer;margin-right:10px;';
+        bellWrap.innerHTML = `
+            <i data-lucide="bell" style="width:17px;height:17px;"></i>
+            <span id="topbarNotifBadge" style="position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;display:none;align-items:center;justify-content:center;">0</span>
+        `;
+        bellWrap.addEventListener('click', () => {
+            if (typeof switchTab === 'function' && currentUser?.role === 'Student') {
+                switchTab('notifications');
+                return;
+            }
+            const items = (dynamicState?.announcements || []).slice(0, 8);
+            openModal(`Notifications (${items.length})`, items.length
+                ? items.map(n => `<div style="padding:10px 0;border-bottom:1px solid rgba(148,163,184,0.15);"><strong>${n.title || 'Notice'}</strong> <small style="color:#64748b;">• ${n.createdAt || ''}</small><p style="margin:4px 0 0;color:#cbd5e1;font-size:12.5px;">${n.message || ''}</p></div>`).join('')
+                : '<p style="color:#94a3b8;">No notifications yet.</p>');
+        });
+        topbarRight.insertBefore(bellWrap, topbarUser);
+    }
+
+    const badge = document.getElementById('topbarNotifBadge');
+    if (badge) {
+        badge.innerText = String(count);
+        badge.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+    refreshIcons();
 }
 
 async function syncPortalState() {
@@ -180,16 +227,26 @@ async function syncPortalState() {
             }
 
             if (Array.isArray(data.students) && data.students.length > 0) {
+                const rawMajors = new Set(data.students.map(s => (s.major || s.department || '').trim()).filter(Boolean));
+                const allSingleDefault = rawMajors.size <= 1 && data.students.length > 30 && data.students.every(s => !s.classId && !s.classCode);
+
                 cache.students = data.students.map((s, idx) => {
-                    const major = s.major || s.department || 'Information Technology';
-                    const fallbackClass = major === 'Marketing' ? 'MKT-K26A1' : (major === 'Graphic Design' ? 'GD-K26A1' : 'IT-K26A1');
+                    const rawClass = s.classId || s.classCode || '';
+                    const major = (!allSingleDefault && s.major && s.major.trim())
+                        ? s.major.trim()
+                        : inferMajorFromClassId(rawClass, idx);
+                    const defaultClass = major === 'Marketing'
+                        ? `MKT-K26${idx % 2 === 0 ? 'A' : 'B'}${(idx % 3) + 1}`
+                        : (major === 'Graphic Design'
+                            ? `GD-K26${idx % 2 === 0 ? 'A' : 'B'}${(idx % 3) + 1}`
+                            : `IT-K26${idx % 2 === 0 ? 'A' : 'B'}${(idx % 3) + 1}`);
                     return {
                         ...s,
                         id: s.id || `SV26${String(idx + 1).padStart(3, '0')}`,
                         fullName: s.fullName || s.name || `Student ${idx + 1}`,
                         major,
-                        classId: s.classId || s.classCode || fallbackClass,
-                        gpa: s.gpa ?? 3.5
+                        classId: rawClass || defaultClass,
+                        gpa: s.gpa ?? 0
                     };
                 });
             }
@@ -267,6 +324,8 @@ async function syncPortalState() {
             }
         }
     } catch (_) { }
+
+    updateNotificationBell();
 }
 
 async function loadAllData() {
@@ -324,4 +383,5 @@ function closeModal() {
 document.getElementById('globalSearch')?.addEventListener('keyup', (e) => handleGlobalSearch(e.target.value));
 document.getElementById('btnLogout')?.addEventListener('click', logout);
 document.getElementById('btnCloseModal')?.addEventListener('click', closeModal);
+updateNotificationBell();
 refreshIcons();
