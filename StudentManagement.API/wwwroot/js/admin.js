@@ -143,7 +143,7 @@ function renderContent() {
                 </div>
                 <div class="kpi-card kpi-purple">
                     <div class="kpi-top"><div class="kpi-icon"><i data-lucide="school"></i></div><div><div class="kpi-value">${cache.classes.length}</div><div class="kpi-label">Active Classes (≤30 SV)</div></div></div>
-                    <div class="kpi-footer"><span class="kpi-trend-up">Avg 27.8 / Class</span>${sparklineSvg('#c084fc')}</div>
+                    <div class="kpi-footer"><span class="kpi-trend-up">Max 30 / Class</span>${sparklineSvg('#c084fc')}</div>
                 </div>
                 <div class="kpi-card kpi-amber">
                     <div class="kpi-top"><div class="kpi-icon"><i data-lucide="life-buoy"></i></div><div><div class="kpi-value">${openTickets}</div><div class="kpi-label">Open Support Requests</div></div></div>
@@ -1544,6 +1544,24 @@ function openAssignClassLecturerModal(classId) {
 
 function openPublishTuitionModal() {
     openModal('Publish Tuition Notice & Send QR Email', `
+        <div class="form-group">
+            <label>Send Tuition Invoice To</label>
+            <select id="pubTuitionScope" class="input-control">
+                <option value="ALL" selected>All Students (${cache.students.length})</option>
+                <option value="CLASS">Specific Class Section</option>
+                <option value="STUDENT">Specific Student Email</option>
+            </select>
+        </div>
+        <div class="form-group" id="pubClassWrap" style="display:none;">
+            <label>Select Class</label>
+            <select id="pubClassSel" class="input-control">
+                ${cache.classes.map(cl => `<option value="${cl.id}">${cl.id} - ${cl.name} (${cl.enrolledCount ?? 0} SV)</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group" id="pubStudentWrap" style="display:none;">
+            <label>Student Email</label>
+            <input id="pubStudentEmail" type="email" class="input-control" placeholder="e.g. an.nv@unit.edu.vn">
+        </div>
         <div class="form-group"><label>Academic Semester</label><input id="pubSem" class="input-control" value="Spring Semester (2026 - 2027)"></div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
             <div class="form-group"><label>Credits</label><input id="pubCredits" type="number" class="input-control" value="16"></div>
@@ -1554,15 +1572,39 @@ function openPublishTuitionModal() {
             <div class="form-group"><label>Account No.</label><input id="pubAcc" class="input-control" value="0865156242"></div>
         </div>
         <div class="form-group"><label>Message</label><input id="pubNote" class="input-control" value="Tuition fee invoice for upcoming semester. Scan the VietQR code to pay."></div>
-        <button class="btn-primary" id="btnSubmitPublishTuition">Publish QR &amp; Email All Students</button>
+        <button class="btn-primary" id="btnSubmitPublishTuition">Publish QR &amp; Send Tuition</button>
     `);
 
+    document.getElementById('pubTuitionScope')?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        document.getElementById('pubClassWrap').style.display = val === 'CLASS' ? 'block' : 'none';
+        document.getElementById('pubStudentWrap').style.display = val === 'STUDENT' ? 'block' : 'none';
+    });
+
     document.getElementById('btnSubmitPublishTuition')?.addEventListener('click', async () => {
+        const scope = document.getElementById('pubTuitionScope').value;
+        let studentEmail = 'ALL';
+        let recipientEmails = cache.students.map(s => s.email);
+
+        if (scope === 'CLASS') {
+            const clsId = document.getElementById('pubClassSel').value;
+            recipientEmails = cache.students.filter(s => s.classId === clsId).map(s => s.email);
+            studentEmail = clsId;
+        } else if (scope === 'STUDENT') {
+            const singleEmail = document.getElementById('pubStudentEmail').value.trim();
+            if (!singleEmail) {
+                alert('Please enter a student email!');
+                return;
+            }
+            recipientEmails = [singleEmail];
+            studentEmail = singleEmail;
+        }
+
         const res = await fetch('/api/academic/publish-tuition', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                studentEmail: 'ALL',
+                studentEmail,
                 semester: document.getElementById('pubSem').value.trim(),
                 credits: parseInt(document.getElementById('pubCredits').value, 10) || 15,
                 amountVnd: parseFloat(document.getElementById('pubAmount').value) || 0,
@@ -1570,14 +1612,14 @@ function openPublishTuitionModal() {
                 accountNo: document.getElementById('pubAcc').value.trim(),
                 accountName: 'DUONG THI KIM YEN',
                 note: document.getElementById('pubNote').value.trim(),
-                recipientEmails: cache.students.map(s => s.email)
+                recipientEmails
             })
         });
         if (res.ok) {
             const data = await res.json();
             await syncPortalState();
             closeModal();
-            alert(`Published tuition VietQR & sent ${data.emailsSent} email(s)!`);
+            alert(`Published tuition VietQR & sent ${data.emailsSent ?? recipientEmails.length} email(s)!`);
             renderContent();
         }
     });
