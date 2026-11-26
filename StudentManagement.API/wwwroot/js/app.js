@@ -33,6 +33,9 @@ function logout() {
     window.location.href = 'login.html';
 }
 
+const MAX_CLASS_CAPACITY = 30;
+const MAJORS_LIST = ['Information Technology', 'Marketing', 'Graphic Design'];
+
 const DEFAULT_TEACHERS = [
     { id: 'GV-IT01', fullName: 'Dr. Nguyen Van Minh', department: 'Information Technology', email: 'minh.tv@unit.edu.vn', phone: '0901112201' },
     { id: 'GV-IT02', fullName: 'MSc. Tran Hoang Nam', department: 'Information Technology', email: 'nam.th@unit.edu.vn', phone: '0901112202' },
@@ -43,24 +46,24 @@ const DEFAULT_TEACHERS = [
 ];
 
 const DEFAULT_CLASSES = [
-    { id: 'IT-K26A1', name: 'Software Engineering K26 - A1', department: 'Information Technology', lecturerId: 'GV-IT01', lecturerName: 'Dr. Nguyen Van Minh', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'IT-K26A2', name: 'Software Engineering K26 - A2', department: 'Information Technology', lecturerId: 'GV-IT01', lecturerName: 'Dr. Nguyen Van Minh', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'IT-K26A3', name: 'Cybersecurity & Cloud K26 - A3', department: 'Information Technology', lecturerId: 'GV-IT01', lecturerName: 'Dr. Nguyen Van Minh', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'IT-K26B1', name: 'Full-Stack Web K26 - B1', department: 'Information Technology', lecturerId: 'GV-IT02', lecturerName: 'MSc. Tran Hoang Nam', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'IT-K26B2', name: 'Data Engineering K26 - B2', department: 'Information Technology', lecturerId: 'GV-IT02', lecturerName: 'MSc. Tran Hoang Nam', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'IT-K26B3', name: 'Mobile App Dev K26 - B3', department: 'Information Technology', lecturerId: 'GV-IT02', lecturerName: 'MSc. Tran Hoang Nam', maxCapacity: 30, enrolledCount: 27, status: 'Active' },
-    { id: 'MKT-K26A1', name: 'Digital Marketing K26 - A1', department: 'Marketing', lecturerId: 'GV-MKT01', lecturerName: 'Dr. Le Thi Thu Ha', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'MKT-K26A2', name: 'Digital Marketing K26 - A2', department: 'Marketing', lecturerId: 'GV-MKT01', lecturerName: 'Dr. Le Thi Thu Ha', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'MKT-K26A3', name: 'Brand Strategy K26 - A3', department: 'Marketing', lecturerId: 'GV-MKT01', lecturerName: 'Dr. Le Thi Thu Ha', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'MKT-K26B1', name: 'SEO & Performance K26 - B1', department: 'Marketing', lecturerId: 'GV-MKT02', lecturerName: 'MSc. Pham Quoc Bao', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'MKT-K26B2', name: 'Social Media K26 - B2', department: 'Marketing', lecturerId: 'GV-MKT02', lecturerName: 'MSc. Pham Quoc Bao', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'MKT-K26B3', name: 'Market Analytics K26 - B3', department: 'Marketing', lecturerId: 'GV-MKT02', lecturerName: 'MSc. Pham Quoc Bao', maxCapacity: 30, enrolledCount: 27, status: 'Active' },
-    { id: 'GD-K26A1', name: 'UI/UX Product Design K26 - A1', department: 'Graphic Design', lecturerId: 'GV-GD01', lecturerName: 'MFA. Vo Minh Tuan', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'GD-K26A2', name: 'UI/UX Product Design K26 - A2', department: 'Graphic Design', lecturerId: 'GV-GD01', lecturerName: 'MFA. Vo Minh Tuan', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'GD-K26A3', name: 'Brand Identity K26 - A3', department: 'Graphic Design', lecturerId: 'GV-GD01', lecturerName: 'MFA. Vo Minh Tuan', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'GD-K26B1', name: '2D & Motion Graphics K26 - B1', department: 'Graphic Design', lecturerId: 'GV-GD02', lecturerName: 'MSc. Dang Ngoc Lan', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'GD-K26B2', name: '3D & Visual Modeling K26 - B2', department: 'Graphic Design', lecturerId: 'GV-GD02', lecturerName: 'MSc. Dang Ngoc Lan', maxCapacity: 30, enrolledCount: 28, status: 'Active' },
-    { id: 'GD-K26B3', name: 'Technical Illustration K26 - B3', department: 'Graphic Design', lecturerId: 'GV-GD02', lecturerName: 'MSc. Dang Ngoc Lan', maxCapacity: 30, enrolledCount: 27, status: 'Active' }
+    { id: 'IT-K26A1', name: 'Software Engineering K26 - A1', department: 'Information Technology', lecturerId: 'GV-IT01', lecturerName: 'Dr. Nguyen Van Minh', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'IT-K26A2', name: 'Software Engineering K26 - A2', department: 'Information Technology', lecturerId: 'GV-IT01', lecturerName: 'Dr. Nguyen Van Minh', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'IT-K26A3', name: 'Cybersecurity & Cloud K26 - A3', department: 'Information Technology', lecturerId: 'GV-IT01', lecturerName: 'Dr. Nguyen Van Minh', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'IT-K26B1', name: 'Full-Stack Web K26 - B1', department: 'Information Technology', lecturerId: 'GV-IT02', lecturerName: 'MSc. Tran Hoang Nam', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'IT-K26B2', name: 'Data Engineering K26 - B2', department: 'Information Technology', lecturerId: 'GV-IT02', lecturerName: 'MSc. Tran Hoang Nam', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'IT-K26B3', name: 'Mobile App Dev K26 - B3', department: 'Information Technology', lecturerId: 'GV-IT02', lecturerName: 'MSc. Tran Hoang Nam', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'MKT-K26A1', name: 'Digital Marketing K26 - A1', department: 'Marketing', lecturerId: 'GV-MKT01', lecturerName: 'Dr. Le Thi Thu Ha', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'MKT-K26A2', name: 'Digital Marketing K26 - A2', department: 'Marketing', lecturerId: 'GV-MKT01', lecturerName: 'Dr. Le Thi Thu Ha', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'MKT-K26A3', name: 'Brand Strategy K26 - A3', department: 'Marketing', lecturerId: 'GV-MKT01', lecturerName: 'Dr. Le Thi Thu Ha', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'MKT-K26B1', name: 'SEO & Performance K26 - B1', department: 'Marketing', lecturerId: 'GV-MKT02', lecturerName: 'MSc. Pham Quoc Bao', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'MKT-K26B2', name: 'Social Media K26 - B2', department: 'Marketing', lecturerId: 'GV-MKT02', lecturerName: 'MSc. Pham Quoc Bao', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'MKT-K26B3', name: 'Market Analytics K26 - B3', department: 'Marketing', lecturerId: 'GV-MKT02', lecturerName: 'MSc. Pham Quoc Bao', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'GD-K26A1', name: 'UI/UX Product Design K26 - A1', department: 'Graphic Design', lecturerId: 'GV-GD01', lecturerName: 'MFA. Vo Minh Tuan', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'GD-K26A2', name: 'UI/UX Product Design K26 - A2', department: 'Graphic Design', lecturerId: 'GV-GD01', lecturerName: 'MFA. Vo Minh Tuan', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'GD-K26A3', name: 'Brand Identity K26 - A3', department: 'Graphic Design', lecturerId: 'GV-GD01', lecturerName: 'MFA. Vo Minh Tuan', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'GD-K26B1', name: '2D & Motion Graphics K26 - B1', department: 'Graphic Design', lecturerId: 'GV-GD02', lecturerName: 'MSc. Dang Ngoc Lan', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'GD-K26B2', name: '3D & Visual Modeling K26 - B2', department: 'Graphic Design', lecturerId: 'GV-GD02', lecturerName: 'MSc. Dang Ngoc Lan', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' },
+    { id: 'GD-K26B3', name: 'Technical Illustration K26 - B3', department: 'Graphic Design', lecturerId: 'GV-GD02', lecturerName: 'MSc. Dang Ngoc Lan', maxCapacity: MAX_CLASS_CAPACITY, enrolledCount: 0, status: 'Active' }
 ];
 
 const DEFAULT_COURSES = [
@@ -120,8 +123,124 @@ function inferMajorFromClassId(classId, index = 0) {
     if (code.startsWith('MKT-')) return 'Marketing';
     if (code.startsWith('GD-')) return 'Graphic Design';
     if (code.startsWith('IT-')) return 'Information Technology';
-    const majors = ['Information Technology', 'Marketing', 'Graphic Design'];
-    return majors[index % majors.length];
+    return MAJORS_LIST[index % MAJORS_LIST.length];
+}
+
+function getMajorPrefix(major) {
+    if (major === 'Marketing') return 'MKT';
+    if (major === 'Graphic Design') return 'GD';
+    return 'IT';
+}
+
+function balanceStudentsIntoClasses(rawStudents, rawClasses, teachers) {
+    const deptCounters = {};
+    const classList = rawClasses.map((cl, idx) => {
+        const fb = DEFAULT_CLASSES[idx % DEFAULT_CLASSES.length];
+        const dept = cl.department || cl.major || fb.department;
+        const cap = Math.min(MAX_CLASS_CAPACITY, Math.max(1, Number(cl.maxCapacity) || MAX_CLASS_CAPACITY));
+        let lec = teachers.find(t => t.id === cl.lecturerId);
+        if (!lec && teachers.length > 0) {
+            const deptTeachers = teachers.filter(t => t.department === dept);
+            const pool = deptTeachers.length > 0 ? deptTeachers : teachers;
+            const cIdx = deptCounters[dept] || 0;
+            lec = pool[Math.floor(cIdx / 3) % pool.length];
+            deptCounters[dept] = cIdx + 1;
+        }
+        const invalidName = !cl.lecturerName || cl.lecturerName === 'Assigned Lecturer' || cl.lecturerName === 'Unassigned';
+        return {
+            ...fb,
+            ...cl,
+            id: cl.id || fb.id,
+            name: cl.name || fb.name,
+            department: dept,
+            maxCapacity: cap,
+            enrolledCount: 0,
+            lecturerId: lec?.id || cl.lecturerId || '',
+            lecturerName: lec?.fullName || (!invalidName ? cl.lecturerName : fb.lecturerName)
+        };
+    });
+
+    const classMap = new Map(classList.map(c => [c.id, c]));
+    const ensureAvailableDeptClass = (dept, preferredId) => {
+        if (preferredId && classMap.has(preferredId)) {
+            const pref = classMap.get(preferredId);
+            if (pref.enrolledCount < pref.maxCapacity) return pref;
+        }
+        const candidate = classList.find(c => c.department === dept && c.enrolledCount < c.maxCapacity);
+        if (candidate) return candidate;
+
+        const prefix = getMajorPrefix(dept);
+        const existingDeptCount = classList.filter(c => c.department === dept).length + 1;
+        const newId = `${prefix}-K26S${existingDeptCount}`;
+        const deptTeachers = teachers.filter(t => t.department === dept);
+        const lec = deptTeachers[(existingDeptCount - 1) % Math.max(1, deptTeachers.length)] || teachers[0];
+        const created = {
+            id: newId,
+            name: `${dept} K26 - Section ${existingDeptCount}`,
+            department: dept,
+            lecturerId: lec?.id || '',
+            lecturerName: lec?.fullName || 'Assigned Lecturer',
+            maxCapacity: MAX_CLASS_CAPACITY,
+            enrolledCount: 0,
+            status: 'Active'
+        };
+        classList.push(created);
+        classMap.set(newId, created);
+        return created;
+    };
+
+    // Chia đều sinh viên không có lớp (hoặc lớp bị dồn quá tải) theo từng ngành
+    const normalizedStudents = rawStudents.map((s, idx) => {
+        const rawClass = (s.classId || s.classCode || '').trim();
+        const major = (s.major && s.major.trim())
+            ? s.major.trim()
+            : inferMajorFromClassId(rawClass, idx);
+        return {
+            ...s,
+            id: s.id || `SV26${String(idx + 1).padStart(3, '0')}`,
+            fullName: s.fullName || s.name || `Student ${idx + 1}`,
+            major,
+            _preferredClass: rawClass,
+            gpa: s.gpa ?? 0
+        };
+    });
+
+    // Bước 1: xếp các sinh viên đã có mã lớp hợp lệ nếu lớp còn chỗ (<= 30)
+    const unassigned = [];
+    for (const st of normalizedStudents) {
+        const target = st._preferredClass ? classMap.get(st._preferredClass) : null;
+        if (target && target.department === st.major && target.enrolledCount < target.maxCapacity) {
+            target.enrolledCount += 1;
+            st.classId = target.id;
+        } else {
+            unassigned.push(st);
+        }
+    }
+
+    // Bước 2: chia đều số sinh viên còn lại xoay vòng qua các lớp cùng ngành (mỗi lớp tối đa 30 SV)
+    const rrIndexByDept = {};
+    for (const st of unassigned) {
+        const deptClasses = classList.filter(c => c.department === st.major);
+        const openClasses = deptClasses.filter(c => c.enrolledCount < c.maxCapacity);
+        if (openClasses.length > 0) {
+            const idx = rrIndexByDept[st.major] || 0;
+            const chosen = openClasses[idx % openClasses.length];
+            rrIndexByDept[st.major] = idx + 1;
+            chosen.enrolledCount += 1;
+            st.classId = chosen.id;
+        } else {
+            const created = ensureAvailableDeptClass(st.major, null);
+            created.enrolledCount += 1;
+            st.classId = created.id;
+        }
+        delete st._preferredClass;
+    }
+
+    for (const st of normalizedStudents) {
+        delete st._preferredClass;
+    }
+
+    return { students: normalizedStudents, classes: classList };
 }
 
 function buildVietQrUrl(invoice) {
@@ -226,74 +345,36 @@ async function syncPortalState() {
                 });
             }
 
-            if (Array.isArray(data.students) && data.students.length > 0) {
-                const rawMajors = new Set(data.students.map(s => (s.major || s.department || '').trim()).filter(Boolean));
-                const allSingleDefault = rawMajors.size <= 1 && data.students.length > 30 && data.students.every(s => !s.classId && !s.classCode);
+            const rawClasses = (Array.isArray(data.classes) && data.classes.length > 0) ? data.classes : DEFAULT_CLASSES;
+            const rawStudents = (Array.isArray(data.students) && data.students.length > 0) ? data.students : [];
 
-                cache.students = data.students.map((s, idx) => {
-                    const rawClass = s.classId || s.classCode || '';
-                    const major = (!allSingleDefault && s.major && s.major.trim())
-                        ? s.major.trim()
-                        : inferMajorFromClassId(rawClass, idx);
-                    const defaultClass = major === 'Marketing'
-                        ? `MKT-K26${idx % 2 === 0 ? 'A' : 'B'}${(idx % 3) + 1}`
-                        : (major === 'Graphic Design'
-                            ? `GD-K26${idx % 2 === 0 ? 'A' : 'B'}${(idx % 3) + 1}`
-                            : `IT-K26${idx % 2 === 0 ? 'A' : 'B'}${(idx % 3) + 1}`);
-                    return {
-                        ...s,
-                        id: s.id || `SV26${String(idx + 1).padStart(3, '0')}`,
-                        fullName: s.fullName || s.name || `Student ${idx + 1}`,
-                        major,
-                        classId: rawClass || defaultClass,
-                        gpa: s.gpa ?? 0
-                    };
-                });
-            }
+            const rawMajors = new Set(rawStudents.map(s => (s.major || s.department || '').trim()).filter(Boolean));
+            const allSingleDefault = rawMajors.size <= 1 && rawStudents.length > 30 && rawStudents.every(s => !(s.classId || s.classCode || '').trim());
 
-            if (Array.isArray(data.classes) && data.classes.length > 0) {
-                const prevById = new Map((cache.classes || []).map(c => [c.id, c]));
-                const defaultById = new Map(DEFAULT_CLASSES.map(c => [c.id, c]));
-                const deptCounters = {};
+            const preparedStudents = rawStudents.map((s, idx) => {
+                const rawClass = (s.classId || s.classCode || '').trim();
+                const major = (!allSingleDefault && s.major && s.major.trim())
+                    ? s.major.trim()
+                    : inferMajorFromClassId(rawClass, idx);
+                return {
+                    ...s,
+                    major,
+                    classId: rawClass
+                };
+            });
 
-                cache.classes = data.classes.map((cl, idx) => {
-                    const fb = defaultById.get(cl.id) || DEFAULT_CLASSES[idx % DEFAULT_CLASSES.length];
-                    const prev = prevById.get(cl.id);
-                    const dept = cl.department || cl.major || fb.department;
-                    const realCount = cache.students.filter(s => s.classId === (cl.id || fb.id)).length;
-                    const targetLecId = cl.lecturerId || prev?.lecturerId || fb.lecturerId || '';
-                    let lec = cache.teachers.find(t => t.id === targetLecId);
-
-                    if (!lec && cache.teachers.length > 0) {
-                        const deptTeachers = cache.teachers.filter(t => t.department === dept);
-                        const pool = deptTeachers.length > 0 ? deptTeachers : cache.teachers;
-                        const cIdx = deptCounters[dept] || 0;
-                        lec = pool[Math.floor(cIdx / 3) % pool.length];
-                        deptCounters[dept] = cIdx + 1;
-                    }
-
-                    const invalidName = !cl.lecturerName || cl.lecturerName === 'Assigned Lecturer' || cl.lecturerName === 'Unassigned';
-                    return {
-                        ...fb,
-                        ...cl,
-                        id: cl.id || fb.id,
-                        name: cl.name || fb.name,
-                        department: dept,
-                        maxCapacity: cl.maxCapacity || 30,
-                        enrolledCount: realCount > 0 ? realCount : (typeof cl.enrolledCount === 'number' && cl.enrolledCount > 0 ? cl.enrolledCount : fb.enrolledCount),
-                        lecturerId: lec?.id || targetLecId,
-                        lecturerName: lec?.fullName || (!invalidName ? cl.lecturerName : prev?.lecturerName) || fb.lecturerName
-                    };
-                });
-            }
+            const balanced = balanceStudentsIntoClasses(preparedStudents, rawClasses, cache.teachers);
+            cache.students = balanced.students;
+            cache.classes = balanced.classes;
 
             if (Array.isArray(data.schedules) && data.schedules.length > 0) {
                 cache.schedules = data.schedules;
             }
 
             if (data.profile) {
-                const resolvedMajor = data.profile.major || currentUser?.major || 'Information Technology';
-                const resolvedClass = data.profile.classId || (resolvedMajor === 'Marketing' ? 'MKT-K26A1' : (resolvedMajor === 'Graphic Design' ? 'GD-K26A1' : 'IT-K26A1'));
+                const matchedStu = cache.students.find(s => (s.email || '').toLowerCase() === (data.profile.email || currentUser?.email || '').toLowerCase());
+                const resolvedMajor = matchedStu?.major || data.profile.major || currentUser?.major || 'Information Technology';
+                const resolvedClass = matchedStu?.classId || data.profile.classId || (resolvedMajor === 'Marketing' ? 'MKT-K26A1' : (resolvedMajor === 'Graphic Design' ? 'GD-K26A1' : 'IT-K26A1'));
                 dynamicState.profile = {
                     ...dynamicState.profile,
                     ...data.profile,
