@@ -82,10 +82,29 @@ function buildVietQrUrl(invoice) {
     return `https://img.vietqr.io/image/${bank}-${acc}-compact2.png?amount=${amount}&addInfo=${info}&accountName=${accName}`;
 }
 
+function resolveAttendanceModuleName(rec, index) {
+    if (rec.courseName) return rec.courseName;
+    if (rec.moduleName) return rec.moduleName;
+    if (rec.course) return rec.course;
+
+    const matchedCourse = cache.courses.find(cs => cs.id === rec.courseId);
+    if (matchedCourse?.name) return matchedCourse.name;
+
+    const matchedClass = cache.classes.find(cl => cl.id === rec.classId);
+    if (matchedClass?.name) return matchedClass.name;
+
+    const deptCourses = cache.courses.filter(cs => !matchedClass || cs.department === matchedClass.department);
+    if (deptCourses.length > 0) {
+        return deptCourses[index % deptCourses.length].name;
+    }
+
+    return rec.courseId || rec.classId || 'Core Academic Module';
+}
+
 async function syncPortalState() {
     const email = encodeURIComponent(currentUser?.email || 'an.nv@unit.edu.vn');
     try {
-        const res = await fetch(`/api/academic/state?email=${email}&t=${Date.now()}`);
+        const res = await fetch(`/api/academic/state?email=${email}`);
         if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data.students)) cache.students = data.students;
@@ -127,7 +146,16 @@ async function syncPortalState() {
             if (data.announcements) dynamicState.announcements = data.announcements;
             if (data.tickets) dynamicState.tickets = data.tickets;
             if (data.assignments) dynamicState.assignments = data.assignments;
-            if (data.attendanceRecords) dynamicState.attendanceRecords = data.attendanceRecords;
+            if (Array.isArray(data.attendanceRecords)) {
+                dynamicState.attendanceRecords = data.attendanceRecords.map((rec, idx) => {
+                    const resolvedName = resolveAttendanceModuleName(rec, idx);
+                    return {
+                        ...rec,
+                        courseName: resolvedName,
+                        moduleName: resolvedName
+                    };
+                });
+            }
             if (data.scholarships) dynamicState.scholarships = data.scholarships;
             if (data.events) dynamicState.events = data.events;
             if (data.auditLogs) dynamicState.auditLogs = data.auditLogs;
@@ -141,18 +169,6 @@ async function syncPortalState() {
 async function loadAllData() {
     await syncPortalState();
 }
-
-setInterval(async () => {
-    const modalOpen = document.getElementById('appModal')?.classList.contains('open');
-    const tag = document.activeElement?.tagName;
-    if (modalOpen || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-
-    await syncPortalState();
-    const currentTab = typeof activeTab !== 'undefined' ? activeTab : window.activeTab;
-    if (typeof currentTab !== 'undefined' && ['support', 'assignments', 'notifications', 'overview', 'audit', 'scholarships', 'attendance', 'tuition', 'events'].includes(currentTab) && typeof renderContent === 'function') {
-        renderContent();
-    }
-}, 5000);
 
 function openQrPaymentModal(invoiceId) {
     const inv = dynamicState.invoices.find(i => i.id === invoiceId);
