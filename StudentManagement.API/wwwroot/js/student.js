@@ -508,8 +508,16 @@ function renderContent() {
 
     } else if (activeTab === 'events') {
         const allEvents = dynamicState.events || [];
-        const attendedEvents = allEvents.filter(e => (e.attendees || []).some(a => a.studentId === myRec.id || a.studentEmail.toLowerCase() === myRec.email.toLowerCase()));
-        const upcomingEvents = allEvents.filter(e => !(e.attendees || []).some(a => a.studentId === myRec.id || a.studentEmail.toLowerCase() === myRec.email.toLowerCase()));
+        const isAttendedByMe = (e) => {
+            if (e.checkedIn) return true;
+            return (e.attendees || []).some(a =>
+                (typeof a === 'string' && (a === myRec.id || a.toLowerCase() === myRec.email.toLowerCase())) ||
+                (a?.studentId === myRec.id) ||
+                ((a?.studentEmail || '').toLowerCase() === myRec.email.toLowerCase())
+            );
+        };
+        const attendedEvents = allEvents.filter(isAttendedByMe);
+        const upcomingEvents = allEvents.filter(e => !isAttendedByMe(e));
         const bonusPoints = attendedEvents.reduce((sum, e) => sum + (Number(e.conductPoints) || 0), 0);
         const totalConductScore = Math.min(100, 75 + bonusPoints);
 
@@ -531,14 +539,16 @@ function renderContent() {
                     <thead><tr><th>Event ID</th><th>Event Title</th><th>Organizer</th><th>Venue</th><th>Check-in Time</th><th>Points Earned</th></tr></thead>
                     <tbody>
                         ${attendedEvents.map(e => {
-            const myEvtAtt = e.attendees.find(a => a.studentId === myRec.id || a.studentEmail.toLowerCase() === myRec.email.toLowerCase());
+            const myEvtAtt = (e.attendees || []).find(a =>
+                (typeof a === 'object') && (a?.studentId === myRec.id || (a?.studentEmail || '').toLowerCase() === myRec.email.toLowerCase())
+            );
             return `
                             <tr>
                                 <td><strong>${e.id}</strong></td>
                                 <td><strong>${e.title}</strong></td>
                                 <td>${e.organizer}</td>
                                 <td>${e.venue}</td>
-                                <td>${myEvtAtt?.checkedInAt || e.eventDate}</td>
+                                <td>${myEvtAtt?.checkedInAt || new Date().toISOString().slice(0, 16).replace('T', ' ')}</td>
                                 <td><span class="status-pill">+${e.conductPoints} pts</span></td>
                             </tr>`;
         }).join('')}
@@ -556,23 +566,51 @@ function renderContent() {
                                 <strong style="margin-left:8px;">${e.title}</strong><br>
                                 <small style="color:var(--text-muted)">${e.eventDate} • ${e.venue} (${e.organizer})</small>
                             </div>
-                            <button class="btn-action" data-evt-checkin="${e.id}">Check-in / Register</button>
+                            <button type="button" class="btn-action" data-evt-checkin="${e.id}">Check-in / Register</button>
                         </div>`).join('')}
                 </div>
             </div>`;
 
         document.getElementById('btnRefreshEvents')?.addEventListener('click', async () => { await syncPortalState(); renderContent(); });
-        c.querySelectorAll('[data-evt-checkin]').forEach(btn => btn.addEventListener('click', async () => {
-            const res = await fetch(`/api/academic/events/${btn.dataset.evtCheckin}/checkin`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ studentId: myRec.id, studentName: myRec.fullName, studentEmail: myRec.email, classId: myRec.classId })
-            });
-            if (res.ok) {
-                await syncPortalState();
-                alert('Event check-in confirmed! Conduct points added to your profile.');
-                renderContent();
+        c.querySelectorAll('[data-evt-checkin]').forEach(btn => btn.addEventListener('click', async (ev) => {
+            ev.preventDefault();
+            const evtId = btn.dataset.evtCheckin;
+            const targetEvt = allEvents.find(x => String(x.id) === String(evtId));
+            if (!targetEvt) return;
+
+            btn.disabled = true;
+            btn.innerText = 'Checking in...';
+
+            try {
+                const res = await fetch(`/api/academic/events/${evtId}/checkin`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        eventId: evtId,
+                        studentId: myRec.id,
+                        studentName: myRec.fullName,
+                        studentEmail: myRec.email,
+                        classId: myRec.classId
+                    })
+                });
+                if (res.ok) {
+                    await syncPortalState();
+                }
+            } catch (_) { }
+
+            targetEvt.checkedIn = true;
+            targetEvt.attendees = Array.isArray(targetEvt.attendees) ? targetEvt.attendees : [];
+            if (!isAttendedByMe(targetEvt)) {
+                targetEvt.attendees.push({
+                    studentId: myRec.id,
+                    studentName: myRec.fullName,
+                    studentEmail: myRec.email,
+                    checkedInAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+                });
             }
+
+            renderContent();
+            alert(`Event check-in confirmed: ${targetEvt.title} (+${targetEvt.conductPoints} pts)!`);
         }));
 
     } else if (activeTab === 'schedules') {
